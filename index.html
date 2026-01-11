@@ -65,7 +65,6 @@
         /* TEAM WRAPPER STYLES */
         .team-block { background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 10px; padding: 10px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .team-block-header { font-size: 1.1em; color: var(--primary); font-weight: 800; text-transform: uppercase; margin-bottom: 10px; border-bottom: 2px solid #e9ecef; padding-bottom: 5px; }
-        /* UPDATED FONT SIZE */
         .team-goal-display { font-size: 1.3em; color: #2c3e50; margin-bottom: 8px; text-align: center; font-weight: 800; background: #fff; padding: 8px; border-radius: 6px; border: 1px dashed #ccc; line-height: 1.2; }
 
         /* Inputs */
@@ -97,6 +96,10 @@
         .qw-btn.qw-end { width: 60px; font-size: 0.8em; }
         .qw-btn span { font-size: 0.7em; font-weight: normal; margin-top: 2px; }
         
+        /* PEEK BUTTONS */
+        .btn-peek { background: #ecf0f1; color: #7f8c8d; border: 2px dashed #bdc3c7; border-radius: 6px; font-weight: bold; cursor: pointer; padding: 8px; width: 100%; text-align: center; user-select: none; font-size: 0.9em; transition: all 0.1s; }
+        .btn-peek:active { background: #fff; border-color: var(--primary); color: var(--primary); transform: scale(0.98); }
+        
         /* QWIRKLE */
         .qw-btn.qw-q.active { background: #8e44ad; color: white; border-color: #8e44ad; }
         .qw-btn.qw-qq.active { background: #e67e22; color: white; border-color: #e67e22; }
@@ -111,11 +114,17 @@
         .badge-end { background: #2c3e50; color: white; font-size: 0.7em; padding: 1px 4px; border-radius: 4px; }
         
         .table-sub { display: block; font-size: 0.75em; color: #666; margin-top: 2px; line-height: 1; }
+        
+        /* LEADERBOARD */
         .lb-section { margin-bottom: 20px; }
         .lb-title { font-size: 1.1em; color: var(--primary); border-bottom: 2px solid var(--accent); margin-bottom: 10px; padding-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
-        .lb-row { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #eee; }
-        .lb-badge { background: var(--accent); color: white; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
         .btn-lb-reset { background: transparent; color: #999; border: 1px solid #ddd; font-size: 0.7em; padding: 4px 8px; width: auto; margin: 0; border-radius: 4px; }
+        .lb-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.9em; }
+        .lb-table th { background: #f4f4f4; color: #555; text-align: center; padding: 6px; font-size: 0.8em; border-bottom: 2px solid #ddd; }
+        .lb-table td { padding: 8px; border-bottom: 1px solid #eee; text-align: center; }
+        .lb-table td:first-child { text-align: left; font-weight: bold; color: var(--primary); }
+        .lb-win-badge { background: var(--accent); color: white; padding: 2px 6px; border-radius: 10px; font-weight: bold; font-size: 0.9em; }
+
         .custom-name-box { display: none; margin-top: 5px; } 
         .team-label { font-size: 1.2em; color: var(--accent); margin-bottom: 10px; display: block; }
         #game-over-banner { background: #f9f9f9; padding: 20px; text-align: center; border-radius: 10px; border: 2px solid var(--primary); margin-bottom: 20px; }
@@ -228,8 +237,17 @@
 <div class="card" id="leaderboard-screen" style="display:none;">
     <h2 style="text-align:center">🏆 Hall of Fame</h2>
     <div id="lb-content"></div>
+    
     <button class="btn-game-action" onclick="closeLeaderboard()">Main Menu</button>
     <button class="btn-outline" onclick="clearLeaderboard()">Reset All</button>
+
+    <div style="background:#e8f4fd; padding:15px; border-radius:10px; margin-top:20px; text-align:center; border:2px solid #3498db;">
+        <h3 style="margin-top:0; color:#2c3e50;">☁️ Cloud Backup</h3>
+        <p style="font-size:0.85em; color:#555;">Save your history to a file so you can move it to another device.</p>
+        <button class="btn-game-action" style="background:#27ae60; margin-bottom:10px;" onclick="exportData()">⬇️ Save to File</button>
+        <button class="btn-outline" style="background:white; border-color:#2980b9; color:#2980b9;" onclick="triggerImport()">⬆️ Load from File</button>
+        <input type="file" id="import-file" style="display:none" onchange="importData(this)">
+    </div>
 </div>
 
 <script>
@@ -1212,12 +1230,17 @@ function renderGame() {
             let teamBox = document.createElement('div');
             teamBox.className = 'team-block';
             
-            // NEW: Updated Team Header with optional goal display
             let headerHtml = `<div class="team-block-header">Team ${t+1}</div>`;
             if (state.gameKey === 'shanghai' && game.randomMap) {
                 let p1Idx = t*2;
                 let goalTxt = game.randomMap[p1Idx][game.round - 1];
-                headerHtml += `<div class="team-goal-display">${goalTxt}</div>`;
+                // PEEK BUTTON FOR TEAM GOAL
+                headerHtml += `<button class="btn-peek" 
+                    onmousedown="startPeek(this, '${goalTxt}')" 
+                    onmouseup="endPeek(this)" 
+                    ontouchstart="startPeek(this, '${goalTxt}')" 
+                    ontouchend="endPeek(this)"
+                    data-orig="👁️ Peek Team Goal">👁️ Peek Team Goal</button>`;
             }
             teamBox.innerHTML = headerHtml;
             
@@ -1272,10 +1295,17 @@ function createPlayerRow(p, i) {
     info += `</span></div>`; 
 
     let sub = "";
-    // MODIFIED: Only show player-specific goal if NOT using teams
+    // SHANGHAI PEEK BUTTON (INDIVIDUAL)
     if (state.gameKey === 'shanghai' && game.randomMap && !game.settings.useTeams) {
-        sub = `<span class="goal-text">${game.randomMap[i][game.round-1]}</span>`;
-    } else if (state.gameKey === 'spades' && game.phase === 'score') {
+        let goalTxt = game.randomMap[i][game.round-1];
+        sub = `<button class="btn-peek" 
+                onmousedown="startPeek(this, '${goalTxt}')" 
+                onmouseup="endPeek(this)" 
+                ontouchstart="startPeek(this, '${goalTxt}')" 
+                ontouchend="endPeek(this)"
+                data-orig="👁️ Hold to Peek">👁️ Hold to Peek</button>`;
+    } 
+    else if (state.gameKey === 'spades' && game.phase === 'score') {
         let bidTxt = (p.isBlindNil) ? "Blind Nil" : (p.bid === 0 ? "Nil" : p.bid);
         let bagsTxt = (p.bags > 0) ? ` (Bags: ${p.bags})` : "";
         sub = `<span class="p-sub">Bid: ${bidTxt}${bagsTxt}</span>`;
@@ -1333,6 +1363,21 @@ function createPlayerRow(p, i) {
 
     row.innerHTML = info + `<div class="input-container">${helpers}${inputHtml}</div>`;
     return row;
+}
+
+function startPeek(btn, txt) {
+    if(!btn.getAttribute('data-orig')) btn.setAttribute('data-orig', btn.innerText);
+    btn.innerText = txt;
+    btn.style.background = '#fff';
+    btn.style.color = '#2c3e50';
+    btn.style.borderColor = '#2c3e50';
+}
+
+function endPeek(btn) {
+    btn.innerText = btn.getAttribute('data-orig');
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.style.borderColor = '';
 }
 
 function renderHelpers(pIdx) {
@@ -1436,7 +1481,6 @@ function renderTable() {
                     valToDisplay = `${b1} / ${b2}`;
                 } else {
                     if (state.gameKey === 'spades') {
-                        // SPADES TEAM DISPLAY (Merged Row)
                         if (h.isComplete) {
                             let b1 = h.bids[p1Idx];
                             let b2 = h.bids[p2Idx];
@@ -1799,14 +1843,42 @@ function finalizeGame() {
     if (!state.currentGame) return;
     const conf = GAMES[state.gameKey];
     const totals = state.currentGame.players.map(p => p.total);
-    let best = (conf.type === 'low_score') ? Math.min(...totals) : Math.max(...totals);
-    let winners = state.currentGame.players.filter(p => p.total === best).map(p => p.name);
+    let bestScore = (conf.type === 'low_score') ? Math.min(...totals) : Math.max(...totals);
+    let winners = state.currentGame.players.filter(p => p.total === bestScore).map(p => p.name);
     
     let lb = JSON.parse(localStorage.getItem('cardScorerLB') || '{}');
     if (!lb[state.gameKey]) lb[state.gameKey] = {};
     
-    winners.forEach(w => {
-        lb[state.gameKey][w] = (lb[state.gameKey][w] || 0) + 1;
+    state.currentGame.players.forEach(p => {
+        let pName = p.name;
+        // Migration: If data is old number, convert to object
+        if (typeof lb[state.gameKey][pName] === 'number') {
+            lb[state.gameKey][pName] = { wins: lb[state.gameKey][pName], plays: lb[state.gameKey][pName], best: null };
+        }
+        
+        // Initialize if new
+        if (!lb[state.gameKey][pName]) {
+            lb[state.gameKey][pName] = { wins: 0, plays: 0, best: null };
+        }
+        
+        let stats = lb[state.gameKey][pName];
+        stats.plays++;
+        
+        if (winners.includes(pName)) {
+            stats.wins++;
+        }
+        
+        // Update Personal Best
+        let pTotal = p.total;
+        if (stats.best === null) {
+            stats.best = pTotal;
+        } else {
+            if (conf.type === 'low_score') {
+                if (pTotal < stats.best) stats.best = pTotal;
+            } else {
+                if (pTotal > stats.best) stats.best = pTotal;
+            }
+        }
     });
     
     localStorage.setItem('cardScorerLB', JSON.stringify(lb));
@@ -1833,13 +1905,81 @@ function showLeaderboard() {
         title.innerHTML = `<span>${GAMES[k].name}</span> <button class="btn-lb-reset" onclick="resetLB('${k}')">Clear</button>`;
         div.appendChild(title);
         
-        let data = Object.entries(lb[k] || {}).sort((a,b)=>b[1]-a[1]);
-        if(!data.length) div.innerHTML += `<div style="color:#999;font-style:italic">No wins yet</div>`;
-        data.forEach(([name, wins]) => {
-            div.innerHTML += `<div class="lb-row"><span>${name}</span><span class="lb-badge">${wins}</span></div>`;
+        let rawData = lb[k] || {};
+        // Convert old simple data to new structure for display if needed
+        let entries = Object.entries(rawData).map(([name, val]) => {
+            if (typeof val === 'number') return { name, wins: val, plays: val, best: '-' };
+            return { name, ...val };
         });
-        div.innerHTML += `<div style="margin-bottom:20px"></div>`;
+        
+        // Sort by Wins
+        entries.sort((a,b) => b.wins - a.wins);
+        
+        if(!entries.length) div.innerHTML += `<div style="color:#999;font-style:italic;margin-bottom:20px">No stats yet</div>`;
+        else {
+            let table = `<table class="lb-table">
+                <thead><tr><th>Name</th><th>Wins</th><th>%</th><th>Best</th></tr></thead>
+                <tbody>`;
+                
+            entries.forEach(e => {
+                let pct = (e.plays > 0) ? Math.round((e.wins / e.plays) * 100) + '%' : '-';
+                let best = (e.best !== null && e.best !== '-') ? e.best : '-';
+                table += `<tr>
+                    <td>${e.name}</td>
+                    <td><span class="lb-win-badge">${e.wins}</span></td>
+                    <td>${pct}</td>
+                    <td>${best}</td>
+                </tr>`;
+            });
+            table += `</tbody></table>`;
+            div.innerHTML += table;
+        }
     }
+}
+
+// ============================================
+//   DATA BACKUP SYSTEM
+// ============================================
+
+function exportData() {
+    const backup = {
+        save: localStorage.getItem('cardScorerSave'),
+        lb: localStorage.getItem('cardScorerLB'),
+        timestamp: new Date().toISOString()
+    };
+    const dataStr = JSON.stringify(backup);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    const exportFileDefaultName = `game_scorer_backup_${new Date().toISOString().slice(0,10)}.json`;
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+}
+
+function triggerImport() {
+    document.getElementById('import-file').click();
+}
+
+function importData(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const content = e.target.result;
+            const backup = JSON.parse(content);
+            if (confirm("This will OVERWRITE your current history. Continue?")) {
+                if (backup.save) localStorage.setItem('cardScorerSave', backup.save);
+                if (backup.lb) localStorage.setItem('cardScorerLB', backup.lb);
+                alert("Backup restored successfully!");
+                location.reload();
+            }
+        } catch (err) {
+            alert("Error loading file: " + err);
+        }
+    };
+    reader.readAsText(file);
+    input.value = ''; 
 }
 
 function closeLeaderboard() {
