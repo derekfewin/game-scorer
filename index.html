@@ -1765,7 +1765,8 @@ function saveState() {
             phase: state.currentGame.phase,
             handSize: state.currentGame.handSize,
             currentTrump: state.currentGame.currentTrump,
-            manualStarter: state.currentGame.manualStarter 
+            manualStarter: state.currentGame.manualStarter,
+            settings: state.currentGame.settings 
         }
     };
     localStorage.setItem('cardScorerSave', JSON.stringify(dataToSave)); 
@@ -1784,16 +1785,17 @@ function restoreGame() {
         
         const conf = GAMES[state.gameKey];
         const cd = parsed.classData;
+        const savedSettings = cd.settings || {}; // Load saved settings
         
-        // Re-hydrate Class
+        // Re-hydrate Class with Saved Settings
         if (state.gameKey === 'shanghai') {
-            state.currentGame = new ShanghaiGame(conf, cd.players, { useTeams: false }); 
+            state.currentGame = new ShanghaiGame(conf, cd.players, savedSettings); 
         } else if (state.gameKey === 'spades') {
-            state.currentGame = new SpadesGame(conf, cd.players, { useTeams: false });
+            state.currentGame = new SpadesGame(conf, cd.players, savedSettings);
         } else if (state.gameKey === 'oldhell') {
-            state.currentGame = new OldHellGame(conf, cd.players, { useTeams: false });
+            state.currentGame = new OldHellGame(conf, cd.players, savedSettings);
         } else if (state.gameKey === 'hearts') {
-            state.currentGame = new HeartsGame(conf, cd.players, {});
+            state.currentGame = new HeartsGame(conf, cd.players, savedSettings);
         } else if (state.gameKey === 'mexicantrain') {
             state.currentGame = new MexicanTrainGame(conf, cd.players, {});
         } else if (state.gameKey === 'rummikub') {
@@ -1806,11 +1808,14 @@ function restoreGame() {
         
         // Restore Props
         Object.assign(state.currentGame, cd);
-        // Important: Re-link players array for simple access if needed (though UI uses game.players)
         
         // Setup UI for this game
         document.getElementById('game-select').value = state.gameKey;
-        updateSetupUI(); // Triggers UI update based on key
+        // Sync Checkboxes based on restored settings
+        if (savedSettings.useTeams !== undefined) document.getElementById('use-teams').checked = savedSettings.useTeams;
+        if (savedSettings.randomize !== undefined) document.getElementById('randomize-goals').checked = savedSettings.randomize;
+        
+        updateSetupUI(); 
         
         renderGame(); 
         document.getElementById('setup-screen').style.display='none'; 
