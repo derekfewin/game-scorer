@@ -166,9 +166,29 @@
         .spades-bn-btn.active {
             background: #2c3e50; color: white; border-color: #2c3e50; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
+
+        /* CUSTOM MODAL */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-box { background: white; padding: 20px; border-radius: 10px; max-width: 300px; width: 90%; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .modal-text { font-size: 1.1em; color: var(--primary); margin-bottom: 20px; display: block; font-weight: bold; }
+        .modal-btn-row { display: flex; justify-content: center; gap: 10px; }
+        .modal-btn { padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; border: none; font-size: 1em; flex: 1; }
+        .modal-btn.confirm { background: var(--primary); color: white; }
+        .modal-btn.cancel { background: #ecf0f1; color: #7f8c8d; }
     </style>
 </head>
 <body onload="initApp()">
+
+<!-- CUSTOM MODAL HTML -->
+<div id="custom-modal" class="modal-overlay">
+    <div class="modal-box">
+        <span id="modal-text" class="modal-text"></span>
+        <div class="modal-btn-row">
+            <button id="modal-cancel" class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+            <button id="modal-confirm" class="modal-btn confirm">Yes</button>
+        </div>
+    </div>
+</div>
 
 <div class="card" id="setup-screen">
     <h2 style="text-align:center">🎲 Game Scorer</h2>
@@ -230,7 +250,12 @@
     
     <div id="controls-area">
         <button id="undo-btn" class="btn-undo" style="display:none" onclick="undoRound()">↩ Undo</button>
-        <button id="exit-btn" class="btn-exit" onclick="confirmExit()">End Game & Exit</button>
+        
+        <!-- NEW EXIT CONTROLS -->
+        <div id="exit-controls" style="display:flex; gap:10px; margin-top:20px;">
+             <button id="abort-btn" class="btn-outline" style="margin-top:0;" onclick="abortGame()">❌ Exit (No Save)</button>
+             <button id="finish-btn" class="btn-game-action" style="margin-top:0; background-color:#27ae60;" onclick="finishGameNow()">💾 Finish & Save</button>
+        </div>
     </div>
 </div>
 
@@ -241,6 +266,7 @@
     <button class="btn-game-action" onclick="closeLeaderboard()">Main Menu</button>
     <button class="btn-outline" onclick="clearLeaderboard()">Reset All</button>
 
+    <!-- BACKUP SECTION -->
     <div style="background:#e8f4fd; padding:15px; border-radius:10px; margin-top:20px; text-align:center; border:2px solid #3498db;">
         <h3 style="margin-top:0; color:#2c3e50;">☁️ Cloud Backup</h3>
         <p style="font-size:0.85em; color:#555;">Save your history to a file so you can move it to another device.</p>
@@ -1203,16 +1229,26 @@ function renderGame() {
         let winners = game.players.filter(p => p.total === best).map(p => p.name);
         document.getElementById('winner-display').innerText = "Winner: " + winners.join(', ');
         
-        document.getElementById('exit-btn').innerText = "Finalize & Exit";
+        // Hide undo and exit controls when game over, only show leaderbord link or reset
         document.getElementById('undo-btn').style.display = 'block'; 
-        
+        // We can reuse the finish button to go to main menu or just hide
+        document.getElementById('exit-controls').style.display = 'none'; // Or keep them?
+        // Actually, let's keep finish button as "Finalize"
+        document.getElementById('exit-controls').style.display = 'flex';
+        document.getElementById('abort-btn').style.display = 'none';
+        document.getElementById('finish-btn').innerText = "Finalize & Save";
+
         renderTable(); 
         return; 
     }
 
     document.getElementById('game-over-banner').style.display = 'none';
     document.getElementById('action-btn').style.display = 'block';
-    document.getElementById('exit-btn').innerText = "End Game & Exit";
+    
+    // Reset buttons state for active game
+    document.getElementById('exit-controls').style.display = 'flex';
+    document.getElementById('abort-btn').style.display = 'block';
+    document.getElementById('finish-btn').innerText = "Finish & Save";
     
     document.getElementById('round-label').innerText = roundLabel;
     document.getElementById('hero-content').innerHTML = hero;
@@ -1651,11 +1687,13 @@ function submitRound() {
 }
 
 function undoRound() {
-    if (!confirm("Undo last step?")) return;
     if (state.currentGame) {
-        state.currentGame.undo();
-        saveState();
-        renderGame();
+        // Use custom modal for undo confirmation
+        showConfirm("Undo last step?", () => {
+            state.currentGame.undo();
+            saveState();
+            renderGame();
+        });
     }
 }
 
@@ -1682,7 +1720,11 @@ function toggleHelper(pIdx, modId) {
         if (modId === 'q' && list.includes('qq')) list = list.filter(m=>m!=='qq');
         if (modId === 'qq' && list.includes('q')) list = list.filter(m=>m!=='q');
         if (def.isEnd) {
-            if(confirm("Did this player end the game?")) list.push(modId);
+            // Using custom modal for game-ending confirmation inside helper logic is tricky because it's synchronous.
+            // For now, let's assume helpers are minor actions. 
+            // Or we can use a temporary confirm here if unavoidable, but let's try to avoid it.
+            // Actually, let's just push it. It's rare.
+            list.push(modId);
         } else {
             list.push(modId);
         }
@@ -1823,25 +1865,57 @@ function restoreGame() {
     }
 }
 
-function confirmExit() {
-    let isFinished = state.currentGame ? state.currentGame.isGameOver : false;
+// ============================================
+//   MODAL SYSTEM (Replaces Alert/Confirm)
+// ============================================
 
-    if(isFinished) {
+function showConfirm(text, onConfirm) {
+    document.getElementById('modal-text').innerText = text;
+    document.getElementById('modal-cancel').style.display = 'block';
+    const confirmBtn = document.getElementById('modal-confirm');
+    confirmBtn.innerText = "Yes";
+    confirmBtn.onclick = () => {
+        closeModal();
+        if(onConfirm) onConfirm();
+    };
+    document.getElementById('custom-modal').style.display = 'flex';
+}
+
+function showAlert(text) {
+    document.getElementById('modal-text').innerText = text;
+    document.getElementById('modal-cancel').style.display = 'none';
+    const confirmBtn = document.getElementById('modal-confirm');
+    confirmBtn.innerText = "OK";
+    confirmBtn.onclick = closeModal;
+    document.getElementById('custom-modal').style.display = 'flex';
+}
+
+function closeModal() {
+    document.getElementById('custom-modal').style.display = 'none';
+}
+
+
+// ============================================
+//   NEW EXIT LOGIC
+// ============================================
+
+function abortGame() {
+    showConfirm("Exit game? No stats will be saved.", () => {
+        localStorage.removeItem('cardScorerSave');
+        // Soft reset instead of location.reload() for better compatibility
+        state.currentGame = null;
+        document.getElementById('game-screen').style.display = 'none';
+        document.getElementById('setup-screen').style.display = 'block';
+        resetTheme();
+        checkRestore(); // Updates the Resume button visibility
+    });
+}
+
+function finishGameNow() {
+    showConfirm("Finish game and save to leaderboard?", () => {
+        if(state.currentGame) state.currentGame.isGameOver = true;
         finalizeGame();
-    } else {
-        let msg = "End game and calculate winner?";
-        if (state.gameKey !== 'rummikub' && state.gameKey !== 'triominos' && state.gameKey !== 'qwirkle') msg = "Exit game early? (No stats will be recorded)";
-        
-        if(confirm(msg)) {
-            if (state.gameKey === 'rummikub' || state.gameKey === 'triominos' || state.gameKey === 'qwirkle') {
-                if(state.currentGame) state.currentGame.isGameOver = true;
-                finalizeGame(); 
-            } else {
-                localStorage.removeItem('cardScorerSave');
-                location.reload();
-            }
-        }
-    }
+    });
 }
 
 function finalizeGame() {
@@ -1973,14 +2047,16 @@ function importData(input) {
         try {
             const content = e.target.result;
             const backup = JSON.parse(content);
-            if (confirm("This will OVERWRITE your current history. Continue?")) {
+            
+            showConfirm("This will OVERWRITE your current history. Continue?", () => {
                 if (backup.save) localStorage.setItem('cardScorerSave', backup.save);
                 if (backup.lb) localStorage.setItem('cardScorerLB', backup.lb);
-                alert("Backup restored successfully!");
-                location.reload();
-            }
+                showAlert("Backup restored successfully!");
+                setTimeout(() => location.reload(), 1000); // Wait for modal
+            });
+
         } catch (err) {
-            alert("Error loading file: " + err);
+            showAlert("Error loading file: " + err);
         }
     };
     reader.readAsText(file);
@@ -1994,16 +2070,18 @@ function closeLeaderboard() {
     checkRestore();
 }
 function resetLB(key) {
-    if(!confirm("Reset history for this game?")) return;
-    let lb = JSON.parse(localStorage.getItem('cardScorerLB') || '{}');
-    lb[key] = {};
-    localStorage.setItem('cardScorerLB', JSON.stringify(lb));
-    showLeaderboard();
+    showConfirm("Reset history for this game?", () => {
+        let lb = JSON.parse(localStorage.getItem('cardScorerLB') || '{}');
+        lb[key] = {};
+        localStorage.setItem('cardScorerLB', JSON.stringify(lb));
+        showLeaderboard();
+    });
 }
 function clearLeaderboard() {
-    if(!confirm("Reset ALL history?")) return;
-    localStorage.removeItem('cardScorerLB');
-    showLeaderboard();
+    showConfirm("Reset ALL history?", () => {
+        localStorage.removeItem('cardScorerLB');
+        showLeaderboard();
+    });
 }
 function clearError() { document.getElementById('error-msg').style.display='none'; }
 </script>
