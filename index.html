@@ -4,6 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Game Night Scorer</title>
+    <!-- Error Logger Style -->
+    <style>
+        #debug-log { display: none; background: #fee; border: 1px solid #c00; color: #c00; padding: 10px; margin: 10px; border-radius: 5px; font-family: monospace; font-size: 12px; white-space: pre-wrap; }
+    </style>
+    <!-- Error Handler Script (Must be first) -->
+    <script>
+        window.onerror = function(msg, url, line, col, error) {
+            var d = document.getElementById('debug-log');
+            if(d){
+                d.style.display = 'block';
+                d.innerHTML += "Error: " + msg + "\nLine: " + line + "\n\n";
+            }
+            return false;
+        };
+    </script>
     <style>
         :root { 
             --primary: #2c3e50; 
@@ -179,6 +194,9 @@
 </head>
 <body onload="initApp()">
 
+<!-- Debug Log -->
+<div id="debug-log"></div>
+
 <!-- CUSTOM MODAL HTML -->
 <div id="custom-modal" class="modal-overlay">
     <div class="modal-box">
@@ -337,14 +355,14 @@ const GAMES = {
         name: "Triominos", color: "#f39c12",
         type: "low_score", 
         phases: ["score"],
-        rounds: 99,
+        rounds: 99, 
         hasDealer: false, hasTeams: false
     },
     qwirkle: {
         name: "Qwirkle", color: "#e74c3c",
-        type: "high_score",
+        type: "high_score", 
         phases: ["score"],
-        rounds: 99,
+        rounds: 99, 
         hasDealer: false, hasTeams: false,
         helpers: [
             { id: 'q', label: 'Q', val: 6, text: '+6' },
@@ -1224,16 +1242,38 @@ function renderGame() {
         document.getElementById('action-btn').style.display = 'none';
         document.getElementById('game-over-banner').style.display = 'block';
         
-        const totals = game.players.map(p => p.total);
-        let best = (conf.type === 'low_score') ? Math.min(...totals) : Math.max(...totals);
-        let winners = game.players.filter(p => p.total === best).map(p => p.name);
-        document.getElementById('winner-display').innerText = "Winner: " + winners.join(', ');
+        let winnerText = "";
+
+        if (game.settings.useTeams) {
+            // TEAM WINNER CALCULATION
+            let teamCount = game.players.length / 2;
+            let teamScores = [];
+            
+            for(let t=0; t<teamCount; t++) {
+                let p1 = game.players[t*2];
+                let p2 = game.players[t*2+1];
+                // For Spades, score is shared. For others, sum them.
+                let s = (state.gameKey === 'spades') ? p1.total : (p1.total + p2.total);
+                teamScores.push({ name: `Team ${t+1} (${p1.name} & ${p2.name})`, score: s });
+            }
+            
+            let best = (conf.type === 'low_score') ? Math.min(...teamScores.map(t=>t.score)) : Math.max(...teamScores.map(t=>t.score));
+            let winners = teamScores.filter(t => t.score === best).map(t => t.name);
+            winnerText = "Winner: " + winners.join(', ');
+        } else {
+            // INDIVIDUAL WINNER CALCULATION
+            const totals = game.players.map(p => p.total);
+            let best = (conf.type === 'low_score') ? Math.min(...totals) : Math.max(...totals);
+            let winners = game.players.filter(p => p.total === best).map(p => p.name);
+            winnerText = "Winner: " + winners.join(', ');
+        }
         
-        // Hide undo and exit controls when game over, only show leaderbord link or reset
+        document.getElementById('winner-display').innerText = winnerText;
+        
+        // Show undo in case of mistake
         document.getElementById('undo-btn').style.display = 'block'; 
-        // We can reuse the finish button to go to main menu or just hide
-        document.getElementById('exit-controls').style.display = 'none'; // Or keep them?
-        // Actually, let's keep finish button as "Finalize"
+        
+        // Show exit controls configured for Finalizing
         document.getElementById('exit-controls').style.display = 'flex';
         document.getElementById('abort-btn').style.display = 'none';
         document.getElementById('finish-btn').innerText = "Finalize & Save";
@@ -1517,12 +1557,13 @@ function renderTable() {
                     valToDisplay = `${b1} / ${b2}`;
                 } else {
                     if (state.gameKey === 'spades') {
+                        // SPADES TEAM DISPLAY (Merged Row)
                         if (h.isComplete) {
                             let b1 = h.bids[p1Idx];
                             let b2 = h.bids[p2Idx];
                             let t1 = h.tricks[p1Idx];
                             let t2 = h.tricks[p2Idx];
-                            let score = h.scores[p1Idx]; 
+                            let score = h.scores[p1Idx]; // Score is same for both in teams
                             
                             valToDisplay = `<div class="spades-cell">
                                 <div class="spades-details">
@@ -1539,7 +1580,9 @@ function renderTable() {
                         let scoreSum = h.scores[p1Idx] + h.scores[p2Idx];
                         if (state.gameKey === 'shanghai' && game.randomMap) {
                             let g = game.randomMap[p1Idx][rIdx];
-                            valToDisplay = `<div style="font-size:0.75em; color:#555; margin-bottom:4px;">${g}</div>
+                            valToDisplay = `<div style="font-size:0.75em; color:#555; margin-bottom:4px; line-height:1.2; text-align:left">
+                                <div>${g}</div>
+                            </div>
                             <span style="font-weight:bold">${scoreSum}</span>`;
                         } else {
                             valToDisplay = scoreSum;
@@ -1899,15 +1942,18 @@ function closeModal() {
 //   NEW EXIT LOGIC
 // ============================================
 
+function softResetApp() {
+    state.currentGame = null;
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'block';
+    resetTheme();
+    checkRestore();
+}
+
 function abortGame() {
     showConfirm("Exit game? No stats will be saved.", () => {
         localStorage.removeItem('cardScorerSave');
-        // Soft reset instead of location.reload() for better compatibility
-        state.currentGame = null;
-        document.getElementById('game-screen').style.display = 'none';
-        document.getElementById('setup-screen').style.display = 'block';
-        resetTheme();
-        checkRestore(); // Updates the Resume button visibility
+        softResetApp(); // Use soft reset instead of reload
     });
 }
 
@@ -1928,37 +1974,86 @@ function finalizeGame() {
     let lb = JSON.parse(localStorage.getItem('cardScorerLB') || '{}');
     if (!lb[state.gameKey]) lb[state.gameKey] = {};
     
-    state.currentGame.players.forEach(p => {
-        let pName = p.name;
-        // Migration: If data is old number, convert to object
-        if (typeof lb[state.gameKey][pName] === 'number') {
-            lb[state.gameKey][pName] = { wins: lb[state.gameKey][pName], plays: lb[state.gameKey][pName], best: null };
+    if (state.currentGame.settings.useTeams) {
+        // TEAM WINNER & STATS LOGIC
+        let teamCount = state.currentGame.players.length / 2;
+        let teams = [];
+        
+        for(let t=0; t<teamCount; t++) {
+            let p1 = state.currentGame.players[t*2]; 
+            let p2 = state.currentGame.players[t*2+1];
+            // Sort names so "P1 & P2" is the same key as "P2 & P1"
+            let teamName = [p1.name, p2.name].sort().join(' & ');
+            
+            // Score Logic: Spades shares scores, others sum scores
+            let s = (state.gameKey === 'spades') ? p1.total : (p1.total + p2.total);
+            teams.push({ name: teamName, score: s });
         }
         
-        // Initialize if new
-        if (!lb[state.gameKey][pName]) {
-            lb[state.gameKey][pName] = { wins: 0, plays: 0, best: null };
-        }
+        let bestTeamScore = (conf.type === 'low_score') ? Math.min(...teams.map(t=>t.score)) : Math.max(...teams.map(t=>t.score));
+        let winningTeams = teams.filter(t => t.score === bestTeamScore).map(t => t.name);
         
-        let stats = lb[state.gameKey][pName];
-        stats.plays++;
-        
-        if (winners.includes(pName)) {
-            stats.wins++;
-        }
-        
-        // Update Personal Best
-        let pTotal = p.total;
-        if (stats.best === null) {
-            stats.best = pTotal;
-        } else {
-            if (conf.type === 'low_score') {
-                if (pTotal < stats.best) stats.best = pTotal;
-            } else {
-                if (pTotal > stats.best) stats.best = pTotal;
+        // Update Leaderboard by Team Name
+        teams.forEach(t => {
+            // Initialize if new
+            if (!lb[state.gameKey][t.name]) {
+                lb[state.gameKey][t.name] = { wins: 0, plays: 0, best: null };
             }
-        }
-    });
+            
+            let stats = lb[state.gameKey][t.name];
+            stats.plays++;
+            
+            if (winningTeams.includes(t.name)) {
+                stats.wins++;
+            }
+            
+            // Personal Best Logic
+            if (stats.best === null) {
+                stats.best = t.score;
+            } else {
+                if (conf.type === 'low_score') {
+                    if (t.score < stats.best) stats.best = t.score;
+                } else {
+                    if (t.score > stats.best) stats.best = t.score;
+                }
+            }
+        });
+        
+    } else {
+        // INDIVIDUAL WINNER & STATS LOGIC
+        // ... existing individual logic ...
+        state.currentGame.players.forEach(p => {
+            let pName = p.name;
+            // Migration: If data is old number, convert to object
+            if (typeof lb[state.gameKey][pName] === 'number') {
+                lb[state.gameKey][pName] = { wins: lb[state.gameKey][pName], plays: lb[state.gameKey][pName], best: null };
+            }
+            
+            // Initialize if new
+            if (!lb[state.gameKey][pName]) {
+                lb[state.gameKey][pName] = { wins: 0, plays: 0, best: null };
+            }
+            
+            let stats = lb[state.gameKey][pName];
+            stats.plays++;
+            
+            if (winners.includes(pName)) {
+                stats.wins++;
+            }
+            
+            // Update Personal Best
+            let pTotal = p.total;
+            if (stats.best === null) {
+                stats.best = pTotal;
+            } else {
+                if (conf.type === 'low_score') {
+                    if (pTotal < stats.best) stats.best = pTotal;
+                } else {
+                    if (pTotal > stats.best) stats.best = pTotal;
+                }
+            }
+        });
+    }
     
     localStorage.setItem('cardScorerLB', JSON.stringify(lb));
     localStorage.removeItem('cardScorerSave');
@@ -2052,7 +2147,7 @@ function importData(input) {
                 if (backup.save) localStorage.setItem('cardScorerSave', backup.save);
                 if (backup.lb) localStorage.setItem('cardScorerLB', backup.lb);
                 showAlert("Backup restored successfully!");
-                setTimeout(() => location.reload(), 1000); // Wait for modal
+                setTimeout(() => softResetApp(), 1000); // Use soft reset instead of reload
             });
 
         } catch (err) {
