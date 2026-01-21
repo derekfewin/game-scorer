@@ -3,6 +3,9 @@
  * Handles real-time multiplayer sync
  */
 
+// DEBUG LOG: helps confirm if the browser has the latest update
+console.log("🔥 FIREBASE MODULE LOADED: SANITIZED VERSION");
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
 import { getDatabase, ref, set, onValue, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
 
@@ -91,6 +94,7 @@ function syncToFirebase() {
     if (!state.isHost || !state.firebaseRef || !state.currentGame) return;
     
     // Explicitly handle undefined values by defaulting to null
+    // This object construction ensures we don't accidentally pass an undefined property
     const rawData = {
         gameKey: state.gameKey,
         classData: {
@@ -99,7 +103,8 @@ function syncToFirebase() {
             round: state.currentGame.round || 0,
             dealCount: state.currentGame.dealCount || 0,
             isGameOver: state.currentGame.isGameOver || false,
-            // Defaults prevent "value contains undefined" errors
+            
+            // CRITICAL FIX: The || null prevents "undefined" errors for games that don't use these fields
             randomMap: state.currentGame.randomMap || null,
             phase: state.currentGame.phase || null,
             handSize: state.currentGame.handSize || null,
@@ -110,6 +115,8 @@ function syncToFirebase() {
     };
 
     // Double safety: deep clean the object to ensure valid JSON (converts any lingering undefined to null)
+    // If rawData contains 'undefined', JSON.stringify removes it or converts it to null (in arrays)
+    // The replacer function forces 'undefined' -> 'null' to be safe.
     let dataToSync;
     try {
         dataToSync = JSON.parse(JSON.stringify(rawData, (k, v) => (v === undefined ? null : v)));
