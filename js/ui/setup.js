@@ -76,6 +76,13 @@ function closeJoinModal() {
     document.getElementById('join-modal').style.display = 'none';
 }
 
+/**
+ * JOIN FLOW UPDATE:
+ * 1. Verify code
+ * 2. Connect to firebase
+ * 3. Fetch players list
+ * 4. Show "Who Are You?" selection
+ */
 async function attemptJoinGame() {
     const code = document.getElementById('game-code-input').value.toUpperCase().trim();
     
@@ -84,47 +91,145 @@ async function attemptJoinGame() {
         return;
     }
     
-    // Check if Firebase API is loaded
     if (!window.FirebaseAPI) {
-        showAlert('Firebase is still loading. Please wait a moment and try again.');
+        showAlert('Firebase is still loading. Please wait.');
         return;
     }
     
+    const joinBtn = document.querySelector('#join-modal .confirm');
+    joinBtn.innerText = "Connecting...";
+    joinBtn.disabled = true;
+    
     try {
-        await window.FirebaseAPI.joinGame(code);
+        // Step 1: Connect and get players list
+        const players = await window.FirebaseAPI.joinGame(code);
         
+        // Step 2: Show Identity Selection
+        showIdentitySelection(players);
+        
+    } catch (error) {
+        console.error('Join error:', error);
+        showAlert('Game not found. Check the code.');
+        joinBtn.innerText = "Join";
+        joinBtn.disabled = false;
+    }
+}
+
+// Global variable to hold unsubscribe function
+let claimUnsub = null;
+
+function showIdentitySelection(players) {
+    const modalBox = document.querySelector('#join-modal .modal-box');
+    
+    // Rebuild Modal Content
+    modalBox.innerHTML = `
+        <h3 style="margin-top:0">Who are you?</h3>
+        <p style="color:#666; font-size:0.9em; margin-bottom:15px;">Select your name to join.</p>
+        <div id="player-select-list" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; max-height:300px; overflow-y:auto; margin-bottom:15px;">
+            <!-- Buttons go here -->
+        </div>
+        <button class="modal-btn cancel" onclick="cancelIdentitySelection()">Cancel</button>
+    `;
+    
+    const list = document.getElementById('player-select-list');
+    
+    // Generate Buttons
+    players.forEach((p, i) => {
+        let btn = document.createElement('button');
+        btn.className = 'btn-outline';
+        btn.style.width = '100%';
+        btn.style.textAlign = 'left';
+        btn.style.padding = '10px';
+        btn.style.margin = '0';
+        btn.innerText = p.name;
+        btn.id = `claim-btn-${i}`;
+        
+        btn.onclick = () => selectIdentity(i, p.name);
+        
+        list.appendChild(btn);
+    });
+    
+    // Listen for taken spots in real-time
+    claimUnsub = window.FirebaseAPI.listenToClaims((claims) => {
+        players.forEach((p, i) => {
+            const btn = document.getElementById(`claim-btn-${i}`);
+            if(btn) {
+                if (claims[i]) {
+                    // Spot is taken
+                    btn.disabled = true;
+                    btn.style.opacity = '0.5';
+                    btn.style.textDecoration = 'line-through';
+                    btn.innerText = p.name + " (Taken)";
+                    btn.style.borderColor = '#ccc';
+                    btn.style.background = '#f9f9f9';
+                } else {
+                    // Spot is free
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                    btn.style.textDecoration = 'none';
+                    btn.innerText = p.name;
+                    btn.style.borderColor = '#2980b9';
+                    btn.style.background = 'white';
+                }
+            }
+        });
+    });
+}
+
+async function selectIdentity(idx, name) {
+    const btn = document.getElementById(`claim-btn-${idx}`);
+    const originalText = btn.innerText;
+    btn.innerText = "Joining...";
+    
+    const success = await window.FirebaseAPI.claimPlayerSlot(idx);
+    
+    if (success) {
+        // Success! Enter game.
+        if(claimUnsub) claimUnsub(); // Stop listening to claims
         closeJoinModal();
         document.getElementById('setup-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
         
-        // Game will be rendered by Firebase listener
-    } catch (error) {
-        console.error('Join error:', error);
-        showAlert('Game not found. Check the code and try again.');
+        // We will now see the game render via the listener started in claimPlayerSlot
+    } else {
+        showAlert("Sorry, that spot was just taken!");
+        btn.innerText = originalText;
     }
 }
 
+function cancelIdentitySelection() {
+    if(claimUnsub) claimUnsub();
+    window.FirebaseAPI.cleanupFirebase();
+    
+    // Reset modal to original state
+    const modalBox = document.querySelector('#join-modal .modal-box');
+    modalBox.innerHTML = `
+        <h3 style="margin-top:0">Join Game</h3>
+        <input type="text" id="game-code-input" placeholder="Enter 6-digit code" 
+               maxlength="6" style="text-align:center; font-size:24px; letter-spacing:5px; text-transform:uppercase;">
+        <div class="modal-btn-row" style="margin-top:20px">
+            <button class="modal-btn cancel" onclick="closeJoinModal()">Cancel</button>
+            <button class="modal-btn confirm" onclick="attemptJoinGame()">Join</button>
+        </div>
+    `;
+    closeJoinModal();
+}
+
 function showNamesAsHost() {
-    // Check if Firebase API is loaded
     if (!window.FirebaseAPI) {
-        showAlert('Firebase is still loading. Please wait a moment and try again.');
+        showAlert('Firebase is still loading. Please wait.');
         return;
     }
-    
-    // Generate code and set up hosting
     const code = window.FirebaseAPI.generateGameCode();
     window.FirebaseAPI.hostGame(code);
     
-    // Show code display
     document.getElementById('game-code-text').innerText = code;
     document.getElementById('game-code-display').style.display = 'block';
     
-    // Show names screen
     showNames();
 }
 
 function cancelMultiplayer() {
-    // Clean up Firebase if needed
     if ((state.isHost || state.isViewer) && window.FirebaseAPI) {
         window.FirebaseAPI.cleanupFirebase();
     }
@@ -136,11 +241,9 @@ function cancelMultiplayer() {
 
 function abortGame() {
     showConfirm("Exit game? No stats will be saved.", () => {
-        // Clean up Firebase
         if ((state.isHost || state.isViewer) && window.FirebaseAPI) {
             window.FirebaseAPI.cleanupFirebase();
         }
-        
         localStorage.removeItem('cardScorerSave');
         softResetApp();
     });

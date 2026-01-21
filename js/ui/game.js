@@ -13,27 +13,32 @@ function renderGame() {
     
     let isGameOver = game.isGameOver;
     let roundLabel = `${conf.name}: Round ${game.round}`;
-    
-    // Get current viewer count (stored in state by firebase.js)
     let vCount = state.viewerCount || 0;
     
-    // Add multiplayer badge
+    // Multiplayer Header
     if (state.isHost) {
-        // UPDATED: Added a span with an ID so firebase.js can update it live
         roundLabel = `🎮 HOST: ${state.gameCode} (<span id="header-viewer-count">${vCount}</span> 👤) • ${roundLabel}`;
     } else if (state.isViewer) {
-        roundLabel = '👀 VIEWING • ' + roundLabel;
+        // Show who I am
+        let myName = "Spectator";
+        if (state.viewingAsPlayerIdx !== null && game.players[state.viewingAsPlayerIdx]) {
+            myName = game.players[state.viewingAsPlayerIdx].name;
+        }
+        roundLabel = `👤 ${myName} • ` + roundLabel;
     }
     
+    // Handle Old Hell Label
     if (state.gameKey === 'oldhell') {
         const baseLabel = `Old Hell: ${game.handSize} Cards (${game.phase === 'bid' ? 'Bidding' : 'Scoring'})`;
         
-        // UPDATED: Handle Old Hell specific label with Game Code
         if (state.isHost) {
-            // UPDATED: Added live viewer count span here too
             roundLabel = `🎮 HOST: ${state.gameCode} (<span id="header-viewer-count">${vCount}</span> 👤) • ${baseLabel}`;
         } else if (state.isViewer) {
-            roundLabel = '👀 VIEWING • ' + baseLabel;
+            let myName = "Spectator";
+            if (state.viewingAsPlayerIdx !== null && game.players[state.viewingAsPlayerIdx]) {
+                myName = game.players[state.viewingAsPlayerIdx].name;
+            }
+            roundLabel = `👤 ${myName} • ${baseLabel}`;
         } else {
             roundLabel = baseLabel;
         }
@@ -74,7 +79,6 @@ function renderGame() {
         
         document.getElementById('winner-display').innerText = winnerText;
         
-        // UPDATED: Hide Game Over controls for viewers
         if (state.isViewer) {
             document.getElementById('undo-btn').style.display = 'none';
             document.getElementById('exit-controls').style.display = 'none';
@@ -104,9 +108,7 @@ function renderGame() {
         document.getElementById('finish-btn').innerText = "Finish & Save";
     }
     
-    // CRITICAL UPDATE: Changed innerText to innerHTML so our <span> tag works
     document.getElementById('round-label').innerHTML = roundLabel;
-    
     document.getElementById('hero-content').innerHTML = hero;
     
     const area = document.getElementById('input-area');
@@ -155,7 +157,6 @@ function renderGame() {
         (game.phase === 'bid') ? "Lock Bids" : "Submit Scores";
     
     let hasHistory = game.history.length;
-    // UPDATED: Ensure undo is hidden for viewers even if history exists
     document.getElementById('undo-btn').style.display = (hasHistory && !state.isViewer) ? 'block' : 'none';
     
     renderTable();
