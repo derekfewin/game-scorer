@@ -3,7 +3,7 @@
  * Handles real-time multiplayer sync
  */
 
-console.log("🔥 FIREBASE MODULE LOADED: FINAL NAME DISPLAY FIX v5");
+console.log("🔥 FIREBASE MODULE LOADED: FINAL NAME DISPLAY FIX v6");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue, remove, onDisconnect, runTransaction } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
@@ -48,9 +48,6 @@ function updateHostUIWithConnectedPlayers(claims) {
     const count = claimedIndices.length;
     state.viewerCount = count;
     
-    console.log('📊 Connected viewers:', claims);
-    console.log('📊 Player indices:', claimedIndices);
-    
     // Update count in game header
     const headerCountEl = document.getElementById('header-viewer-count');
     if (headerCountEl) {
@@ -63,8 +60,18 @@ function updateHostUIWithConnectedPlayers(claims) {
         if (count === 0) {
             viewerListEl.innerHTML = '<span style="color:#999; font-style:italic">Waiting for players...</span>';
         } else {
-            // Game hasn't started yet, can't show names
-            viewerListEl.innerHTML = `<strong>${count} viewer(s) connected</strong><br><span style="font-size:0.85em; color:#666;">(Names will appear after you start the game)</span>`;
+            let names = [];
+            claimedIndices.forEach(idx => {
+               let name = resolveNameFromIndex(idx);
+               if(name) names.push(name);
+            });
+            
+            // Fallback
+            if (names.length === 0 && count > 0) {
+                names = claimedIndices.map(i => `Player ${i+1}`);
+            }
+            
+            viewerListEl.innerHTML = `<strong>Connected:</strong> ${names.join(', ')}`;
         }
     }
     
@@ -87,6 +94,40 @@ function getConnectedViewerIndices() {
  */
 function isPlayerConnected(playerIdx) {
     return state.connectedViewers && state.connectedViewers[playerIdx] !== undefined;
+}
+
+// Helper to find name from index
+function resolveNameFromIndex(idx) {
+    // 1. If game is running, use game object (Best source)
+    if (state.currentGame && state.currentGame.players && state.currentGame.players[idx]) {
+        return state.currentGame.players[idx].name;
+    }
+    
+    // 2. If on setup screen, find the input field logic
+    // We look for all .name-selector elements (the dropdowns)
+    const inputs = document.querySelectorAll('.name-selector');
+    
+    if (inputs.length > idx) {
+        let selectEl = inputs[idx];
+        let val = selectEl.value;
+        
+        // FIX: Handle "CUSTOM" value by looking for the sibling input
+        if (val === 'CUSTOM') {
+            // The custom input has ID "c-" + the ID suffix of the select "n-"
+            // e.g. select id="n-1", custom input id="c-1"
+            let customId = selectEl.id.replace('n-', 'c-');
+            let customInput = document.getElementById(customId);
+            if (customInput && customInput.value) {
+                return customInput.value;
+            }
+            return "Custom Player"; // Fallback if empty
+        }
+        
+        if (val) return val;
+    }
+    
+    // 3. Fallback
+    return `Player ${idx+1}`;
 }
 
 /**
