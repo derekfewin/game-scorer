@@ -84,11 +84,14 @@ async function attemptJoinGame() {
         return;
     }
     
-    // Import Firebase functions dynamically
-    const { joinGame } = await import('./firebase.js');
+    // Check if Firebase API is loaded
+    if (!window.FirebaseAPI) {
+        showAlert('Firebase is still loading. Please wait a moment and try again.');
+        return;
+    }
     
     try {
-        await joinGame(code);
+        await window.FirebaseAPI.joinGame(code);
         
         closeJoinModal();
         document.getElementById('setup-screen').style.display = 'none';
@@ -96,30 +99,34 @@ async function attemptJoinGame() {
         
         // Game will be rendered by Firebase listener
     } catch (error) {
+        console.error('Join error:', error);
         showAlert('Game not found. Check the code and try again.');
     }
 }
 
 function showNamesAsHost() {
-    // Set up hosting mode then show names
-    import('./firebase.js').then(module => {
-        const code = module.generateGameCode();
-        module.hostGame(code);
-        
-        // Show code display
-        document.getElementById('game-code-text').innerText = code;
-        document.getElementById('game-code-display').style.display = 'block';
-        
-        showNames();
-    });
+    // Check if Firebase API is loaded
+    if (!window.FirebaseAPI) {
+        showAlert('Firebase is still loading. Please wait a moment and try again.');
+        return;
+    }
+    
+    // Generate code and set up hosting
+    const code = window.FirebaseAPI.generateGameCode();
+    window.FirebaseAPI.hostGame(code);
+    
+    // Show code display
+    document.getElementById('game-code-text').innerText = code;
+    document.getElementById('game-code-display').style.display = 'block';
+    
+    // Show names screen
+    showNames();
 }
 
 function cancelMultiplayer() {
     // Clean up Firebase if needed
-    if (state.isHost || state.isViewer) {
-        import('./firebase.js').then(module => {
-            module.cleanupFirebase();
-        });
+    if ((state.isHost || state.isViewer) && window.FirebaseAPI) {
+        window.FirebaseAPI.cleanupFirebase();
     }
     
     document.getElementById('game-code-display').style.display = 'none';
@@ -130,10 +137,8 @@ function cancelMultiplayer() {
 function abortGame() {
     showConfirm("Exit game? No stats will be saved.", () => {
         // Clean up Firebase
-        if (state.isHost || state.isViewer) {
-            import('./firebase.js').then(module => {
-                module.cleanupFirebase();
-            });
+        if ((state.isHost || state.isViewer) && window.FirebaseAPI) {
+            window.FirebaseAPI.cleanupFirebase();
         }
         
         localStorage.removeItem('cardScorerSave');
