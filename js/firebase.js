@@ -10,7 +10,7 @@ import { getDatabase, ref, set, onValue, remove, onDisconnect } from "https://ww
 const firebaseConfig = {
     apiKey: "AIzaSyCIJLFgLAmY3xmjWuAn0k6agkPqpwaerfY",
     authDomain: "game-scorer-69dfe.firebaseapp.com",
-    databaseURL: "https://game-scorer-69dfe-default-rtdb.firebaseio.com", // ADD THIS LINE!
+    databaseURL: "https://game-scorer-69dfe-default-rtdb.firebaseio.com",
     projectId: "game-scorer-69dfe",
     storageBucket: "game-scorer-69dfe.firebasestorage.app",
     messagingSenderId: "732132954950",
@@ -25,14 +25,14 @@ const database = getDatabase(app);
 /**
  * Generate a random 6-character game code
  */
-export function generateGameCode() {
+function generateGameCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
 /**
  * Host a new multiplayer game
  */
-export function hostGame(gameCode) {
+function hostGame(gameCode) {
     state.gameCode = gameCode;
     state.isHost = true;
     state.isViewer = false;
@@ -51,7 +51,7 @@ export function hostGame(gameCode) {
 /**
  * Join an existing game as a viewer
  */
-export async function joinGame(gameCode) {
+async function joinGame(gameCode) {
     return new Promise((resolve, reject) => {
         state.gameCode = gameCode;
         state.isHost = false;
@@ -87,7 +87,7 @@ export async function joinGame(gameCode) {
 /**
  * Sync current game state to Firebase (host only)
  */
-export function syncToFirebase() {
+function syncToFirebase() {
     if (!state.isHost || !state.firebaseRef || !state.currentGame) return;
     
     const dataToSync = {
@@ -155,7 +155,7 @@ function restoreGameFromFirebase(parsed) {
 /**
  * Clean up Firebase connection
  */
-export function cleanupFirebase() {
+function cleanupFirebase() {
     if (!state.firebaseRef) return;
     
     if (state.isHost) {
@@ -168,3 +168,12 @@ export function cleanupFirebase() {
     state.isHost = false;
     state.isViewer = false;
 }
+
+// Make functions globally available
+window.FirebaseAPI = {
+    generateGameCode,
+    hostGame,
+    joinGame,
+    syncToFirebase,
+    cleanupFirebase
+};
