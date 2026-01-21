@@ -3,7 +3,7 @@
  * Handles real-time multiplayer sync
  */
 
-console.log("🔥 FIREBASE MODULE LOADED: IDENTITY SELECTION ENABLED v2");
+console.log("🔥 FIREBASE MODULE LOADED: IDENTITY SELECTION + VIEWER NAMES");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue, remove, onDisconnect, runTransaction } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
@@ -32,19 +32,61 @@ function hostGame(gameCode) {
     state.isViewer = false;
     state.firebaseRef = ref(database, 'games/' + gameCode);
     
-    // Listen for viewer count
-    const viewersRef = ref(database, 'games/' + gameCode + '/viewers');
-    onValue(viewersRef, (snapshot) => {
-        const viewers = snapshot.val() || {};
-        const count = Object.keys(viewers).length;
-        state.viewerCount = count;
+    // Listen for claims to see WHO has joined
+    const claimsRef = ref(database, 'games/' + gameCode + '/claims');
+    onValue(claimsRef, (snapshot) => {
+        const claims = snapshot.val() || {};
+        const claimedIndices = Object.keys(claims).map(Number);
         
-        const countEl = document.getElementById('viewer-count');
-        if (countEl) countEl.innerText = count;
-        
-        const headerCountEl = document.getElementById('header-viewer-count');
-        if (headerCountEl) headerCountEl.innerText = count;
+        // Update the Host UI
+        updateHostUIWithConnectedPlayers(claimedIndices);
     });
+}
+
+function updateHostUIWithConnectedPlayers(indices) {
+    const count = indices.length;
+    state.viewerCount = count;
+    
+    // Update count display in header (if game started)
+    const headerCountEl = document.getElementById('header-viewer-count');
+    if (headerCountEl) headerCountEl.innerText = count;
+
+    // Update list on Setup Screen (if waiting)
+    const viewerListEl = document.getElementById('viewer-list-display');
+    if (viewerListEl) {
+        if (count === 0) {
+            viewerListEl.innerHTML = '<span style="color:#999; font-style:italic">Waiting for players...</span>';
+        } else {
+            let names = [];
+            indices.forEach(idx => {
+               let name = resolveNameFromIndex(idx);
+               if(name) names.push(name);
+            });
+            viewerListEl.innerHTML = `<strong>Connected:</strong> ${names.join(', ')}`;
+        }
+    }
+}
+
+// Helper to find name from index
+function resolveNameFromIndex(idx) {
+    // If game is running, use game object
+    if (state.currentGame && state.currentGame.players && state.currentGame.players[idx]) {
+        return state.currentGame.players[idx].name;
+    }
+    
+    // If on setup screen, try to read inputs
+    // Note: This relies on the DOM structure of names.js
+    let name = `Player ${idx+1}`;
+    
+    // Try standard inputs
+    const inputs = document.querySelectorAll('.name-selector');
+    if (inputs.length > 0) {
+        // Flatten inputs logic is tricky because of teams vs solo
+        // But names.js generates them in order 1..N or 1a, 1b..
+        if(inputs[idx]) return inputs[idx].value;
+    }
+    
+    return name;
 }
 
 /**
@@ -65,27 +107,25 @@ async function joinGame(gameCode) {
             const data = snapshot.val();
             
             // Robustly find the players array
-            // It might be deeply nested depending on how it was saved
             let players = [];
             if (data.gameState && data.gameState.classData && Array.isArray(data.gameState.classData.players)) {
                 players = data.gameState.classData.players;
             } else {
-                console.warn("Player data missing or malformed in Firebase:", data);
+                console.warn("Player data missing or malformed:", data);
             }
 
-            // Register as viewer
+            // Register as viewer (initially anonymous)
             const viewerId = 'viewer_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
             state.viewerId = viewerId;
             state.gameCode = gameCode;
             state.isHost = false;
             state.isViewer = true;
-            state.firebaseRef = gameRef; // Store reference but don't listen yet
+            state.firebaseRef = gameRef; 
             
             const viewerRef = ref(database, 'games/' + gameCode + '/viewers/' + viewerId);
             set(viewerRef, { joined: Date.now() });
             onDisconnect(viewerRef).remove();
             
-            // Return players so UI can build selection list
             resolve(players);
         }).catch(reject);
     });
@@ -93,7 +133,6 @@ async function joinGame(gameCode) {
 
 /**
  * Attempt to claim a player slot
- * @returns {Promise<boolean>} true if successful, false if taken
  */
 async function claimPlayerSlot(playerIdx) {
     if (!state.gameCode || !state.viewerId) return false;
@@ -102,19 +141,15 @@ async function claimPlayerSlot(playerIdx) {
     
     const result = await runTransaction(claimRef, (currentClaim) => {
         if (currentClaim === null) {
-            // It's free! Claim it.
-            return state.viewerId;
+            return state.viewerId; // Claim it
         } else {
-            // Already taken, abort
-            return; 
+            return; // Abort
         }
     });
 
     if (result.committed) {
         state.viewingAsPlayerIdx = playerIdx;
-        // Remove claim on disconnect
         onDisconnect(claimRef).remove();
-        // Start listening to game updates NOW
         listenToGameUpdates(state.gameCode);
         return true;
     } else {
@@ -197,11 +232,17 @@ function cleanupFirebase() {
         // Remove our claim if we leave
         remove(ref(database, `games/${state.gameCode}/claims/${state.viewingAsPlayerIdx}`));
     }
+    
+    if (state.viewerId && state.gameCode) {
+         remove(ref(database, `games/${state.gameCode}/viewers/${state.viewerId}`));
+    }
+
     state.firebaseRef = null;
     state.gameCode = null;
     state.isHost = false;
     state.isViewer = false;
     state.viewingAsPlayerIdx = null;
+    state.viewerId = null;
 }
 
 window.FirebaseAPI = {

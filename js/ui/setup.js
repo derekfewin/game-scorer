@@ -105,8 +105,9 @@ async function attemptJoinGame() {
         const players = await window.FirebaseAPI.joinGame(code);
         
         if (!players || players.length === 0) {
+            // Note: Players array is only created AFTER the host clicks "Start Game"
             console.error("No players found. Game State:", state);
-            showAlert("Game found, but no players are listed yet. Has the host started the game?");
+            showAlert("Game found, but no players are listed yet. Please wait for the host to START the game, then try again.");
             joinBtn.innerText = "Join";
             joinBtn.disabled = false;
             return;
