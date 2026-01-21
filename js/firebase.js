@@ -90,7 +90,7 @@ async function joinGame(gameCode) {
 function syncToFirebase() {
     if (!state.isHost || !state.firebaseRef || !state.currentGame) return;
     
-    const dataToSync = {
+    const rawData = {
         gameKey: state.gameKey,
         classData: {
             players: state.currentGame.players,
@@ -106,6 +106,16 @@ function syncToFirebase() {
             settings: state.currentGame.settings
         }
     };
+
+    // Sanitize data: Firebase cannot accept 'undefined', so we convert undefined to null
+    // We try to use the global cleanUndefined if available, otherwise do it inline
+    let dataToSync;
+    if (typeof cleanUndefined === 'function') {
+        dataToSync = cleanUndefined(rawData);
+    } else {
+        // Fallback if utils.js hasn't loaded or isn't accessible
+        dataToSync = JSON.parse(JSON.stringify(rawData, (k, v) => (v === undefined ? null : v)));
+    }
     
     const gameStateRef = ref(database, 'games/' + state.gameCode + '/gameState');
     set(gameStateRef, dataToSync);
