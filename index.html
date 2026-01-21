@@ -52,6 +52,19 @@
     </div>
 </div>
 
+<!-- JOIN GAME MODAL -->
+<div id="join-modal" class="modal-overlay" style="display:none">
+    <div class="modal-box">
+        <h3 style="margin-top:0">Join Game</h3>
+        <input type="text" id="game-code-input" placeholder="Enter 6-digit code" 
+               maxlength="6" style="text-align:center; font-size:24px; letter-spacing:5px; text-transform:uppercase;">
+        <div class="modal-btn-row" style="margin-top:20px">
+            <button class="modal-btn cancel" onclick="closeJoinModal()">Cancel</button>
+            <button class="modal-btn confirm" onclick="attemptJoinGame()">Join</button>
+        </div>
+    </div>
+</div>
+
 <!-- SETUP SCREEN -->
 <div class="card" id="setup-screen">
     <h2 style="text-align:center">🎲 Game Scorer</h2>
@@ -76,15 +89,35 @@
     <div id="random-option" class="setup-group" style="display:none;">
         <label><input type="checkbox" id="randomize-goals"> 🔀 Randomize Goals?</label>
     </div>
-    <button class="btn-game-action" onclick="showNames()">Next</button>
+    
+    <!-- MULTIPLAYER OPTIONS -->
+    <div class="setup-group" style="border-bottom:none; padding-bottom:0;">
+        <label style="margin-bottom:15px;">Multiplayer Mode</label>
+        <button class="btn-game-action" onclick="showNamesAsHost()">🎮 Host Game</button>
+        <button class="btn-outline" style="background:white; border-color:#2980b9; color:#2980b9;" onclick="showJoinPrompt()">📱 Join Game</button>
+    </div>
+    
+    <button class="btn-game-action" onclick="showNames()">▶ Start Solo Game</button>
 </div>
 
 <!-- NAME SCREEN -->
 <div class="card" id="name-screen" style="display:none;">
     <h2 style="text-align:center">Who is Playing?</h2>
+    
+    <!-- Game Code Display (for hosts) -->
+    <div id="game-code-display" style="display:none; text-align:center; margin-bottom:20px; 
+         padding:15px; background:#e8f4fd; border-radius:10px; border:2px solid #3498db;">
+        <div style="font-size:14px; color:#666; margin-bottom:5px">Share this code with viewers:</div>
+        <div id="game-code-text" style="font-size:36px; font-weight:bold; 
+             letter-spacing:8px; color:#2c3e50;"></div>
+        <div style="font-size:12px; color:#666; margin-top:5px">
+            <span id="viewer-count">0</span> viewer(s) connected
+        </div>
+    </div>
+    
     <div id="name-inputs"></div>
     <button class="btn-game-action" onclick="startGame()">Start Game</button>
-    <button class="btn-outline" onclick="location.reload()">Back</button>
+    <button class="btn-outline" onclick="cancelMultiplayer()">Back</button>
 </div>
 
 <!-- GAME SCREEN -->
@@ -164,6 +197,9 @@
 <script src="js/ui/table.js"></script>
 <script src="js/ui/game.js"></script>
 <script src="js/ui/leaderboard.js"></script>
+
+<!-- Firebase Module (ES6 Module) -->
+<script type="module" src="js/firebase.js"></script>
 
 <!-- Initialize -->
 <script>
