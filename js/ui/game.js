@@ -16,15 +16,23 @@ function renderGame() {
     
     // Add multiplayer badge
     if (state.isHost) {
-        roundLabel = '🎮 HOSTING • ' + roundLabel;
+        // UPDATED: Display the Game Code in the header
+        roundLabel = `🎮 HOST: ${state.gameCode} • ${roundLabel}`;
     } else if (state.isViewer) {
         roundLabel = '👀 VIEWING • ' + roundLabel;
     }
     
     if (state.gameKey === 'oldhell') {
         const baseLabel = `Old Hell: ${game.handSize} Cards (${game.phase === 'bid' ? 'Bidding' : 'Scoring'})`;
-        roundLabel = state.isHost ? '🎮 HOSTING • ' + baseLabel : 
-                     state.isViewer ? '👀 VIEWING • ' + baseLabel : baseLabel;
+        
+        // UPDATED: Handle Old Hell specific label with Game Code
+        if (state.isHost) {
+            roundLabel = `🎮 HOST: ${state.gameCode} • ${baseLabel}`;
+        } else if (state.isViewer) {
+            roundLabel = '👀 VIEWING • ' + baseLabel;
+        } else {
+            roundLabel = baseLabel;
+        }
     }
     
     let hero = game.getHeroContent();
