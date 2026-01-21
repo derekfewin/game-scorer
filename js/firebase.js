@@ -4,7 +4,7 @@
  */
 
 // DEBUG LOG: helps confirm if the browser has the latest update
-console.log("🔥 FIREBASE MODULE LOADED: SANITIZED VERSION");
+console.log("🔥 FIREBASE MODULE LOADED: SANITIZED VERSION + VIEWER COUNT");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
 import { getDatabase, ref, set, onValue, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
@@ -46,8 +46,17 @@ function hostGame(gameCode) {
     onValue(viewersRef, (snapshot) => {
         const viewers = snapshot.val() || {};
         const count = Object.keys(viewers).length;
+        
+        // Store in global state so game.js can use it during renders
+        state.viewerCount = count;
+        
+        // Update Setup Screen element (if visible)
         const countEl = document.getElementById('viewer-count');
         if (countEl) countEl.innerText = count;
+        
+        // Update Game Screen element (live update in header)
+        const headerCountEl = document.getElementById('header-viewer-count');
+        if (headerCountEl) headerCountEl.innerText = count;
     });
 }
 
@@ -115,8 +124,6 @@ function syncToFirebase() {
     };
 
     // Double safety: deep clean the object to ensure valid JSON (converts any lingering undefined to null)
-    // If rawData contains 'undefined', JSON.stringify removes it or converts it to null (in arrays)
-    // The replacer function forces 'undefined' -> 'null' to be safe.
     let dataToSync;
     try {
         dataToSync = JSON.parse(JSON.stringify(rawData, (k, v) => (v === undefined ? null : v)));
