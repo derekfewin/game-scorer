@@ -64,3 +64,11 @@ function resetTheme() {
 function clearError() {
     document.getElementById('error-msg').style.display = 'none';
 }
+
+/**
+ * Recursively removes undefined values from an object so Firebase doesn't crash.
+ * Replaces undefined with null.
+ */
+function cleanUndefined(obj) {
+    return JSON.parse(JSON.stringify(obj, (k, v) => (v === undefined ? null : v)));
+}
