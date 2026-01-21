@@ -27,10 +27,8 @@ function saveState() {
     localStorage.setItem('cardScorerSave', JSON.stringify(dataToSave));
     
     // Sync to Firebase if hosting
-    if (state.isHost) {
-        import('./firebase.js').then(module => {
-            module.syncToFirebase();
-        });
+    if (state.isHost && window.FirebaseAPI) {
+        window.FirebaseAPI.syncToFirebase();
     }
 }
 
