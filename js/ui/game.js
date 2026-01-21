@@ -69,11 +69,17 @@ function renderGame() {
         }
         
         document.getElementById('winner-display').innerText = winnerText;
-        document.getElementById('undo-btn').style.display = 'block';
         
-        document.getElementById('exit-controls').style.display = 'flex';
-        document.getElementById('abort-btn').style.display = 'none';
-        document.getElementById('finish-btn').innerText = "Finalize & Save";
+        // UPDATED: Hide Game Over controls for viewers
+        if (state.isViewer) {
+            document.getElementById('undo-btn').style.display = 'none';
+            document.getElementById('exit-controls').style.display = 'none';
+        } else {
+            document.getElementById('undo-btn').style.display = 'block';
+            document.getElementById('exit-controls').style.display = 'flex';
+            document.getElementById('abort-btn').style.display = 'none';
+            document.getElementById('finish-btn').innerText = "Finalize & Save";
+        }
 
         renderTable();
         return;
@@ -143,7 +149,8 @@ function renderGame() {
         (game.phase === 'bid') ? "Lock Bids" : "Submit Scores";
     
     let hasHistory = game.history.length;
-    document.getElementById('undo-btn').style.display = hasHistory ? 'block' : 'none';
+    // UPDATED: Ensure undo is hidden for viewers even if history exists
+    document.getElementById('undo-btn').style.display = (hasHistory && !state.isViewer) ? 'block' : 'none';
     
     renderTable();
 }
