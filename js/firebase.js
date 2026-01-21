@@ -3,13 +3,11 @@
  * Handles real-time multiplayer sync
  */
 
-// DEBUG LOG: helps confirm if the browser has the latest update
-console.log("🔥 FIREBASE MODULE LOADED: SANITIZED VERSION + VIEWER COUNT");
+console.log("🔥 FIREBASE MODULE LOADED: IDENTITY SELECTION ENABLED v2");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
+import { getDatabase, ref, set, get, onValue, remove, onDisconnect, runTransaction } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
 
-// Your Firebase configuration
 const firebaseConfig = {
     apiKey: "AIzaSyCIJLFgLAmY3xmjWuAn0k6agkPqpwaerfY",
     authDomain: "game-scorer-69dfe.firebaseapp.com",
@@ -21,20 +19,13 @@ const firebaseConfig = {
     measurementId: "G-LTP3GP2S2N"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
-/**
- * Generate a random 6-character game code
- */
 function generateGameCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-/**
- * Host a new multiplayer game
- */
 function hostGame(gameCode) {
     state.gameCode = gameCode;
     state.isHost = true;
@@ -46,15 +37,11 @@ function hostGame(gameCode) {
     onValue(viewersRef, (snapshot) => {
         const viewers = snapshot.val() || {};
         const count = Object.keys(viewers).length;
-        
-        // Store in global state so game.js can use it during renders
         state.viewerCount = count;
         
-        // Update Setup Screen element (if visible)
         const countEl = document.getElementById('viewer-count');
         if (countEl) countEl.innerText = count;
         
-        // Update Game Screen element (live update in header)
         const headerCountEl = document.getElementById('header-viewer-count');
         if (headerCountEl) headerCountEl.innerText = count;
     });
@@ -62,48 +49,93 @@ function hostGame(gameCode) {
 
 /**
  * Join an existing game as a viewer
+ * Returns the players list to help with identity selection
  */
 async function joinGame(gameCode) {
     return new Promise((resolve, reject) => {
-        state.gameCode = gameCode;
-        state.isHost = false;
-        state.isViewer = true;
-        state.firebaseRef = ref(database, 'games/' + gameCode);
+        const gameRef = ref(database, 'games/' + gameCode);
         
         // Check if game exists
-        onValue(state.firebaseRef, (snapshot) => {
+        get(gameRef).then((snapshot) => {
             if (!snapshot.exists()) {
                 reject(new Error('Game not found'));
                 return;
             }
             
+            const data = snapshot.val();
+            
+            // Robustly find the players array
+            // It might be deeply nested depending on how it was saved
+            let players = [];
+            if (data.gameState && data.gameState.classData && Array.isArray(data.gameState.classData.players)) {
+                players = data.gameState.classData.players;
+            } else {
+                console.warn("Player data missing or malformed in Firebase:", data);
+            }
+
             // Register as viewer
-            const viewerId = 'viewer_' + Date.now();
+            const viewerId = 'viewer_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            state.viewerId = viewerId;
+            state.gameCode = gameCode;
+            state.isHost = false;
+            state.isViewer = true;
+            state.firebaseRef = gameRef; // Store reference but don't listen yet
+            
             const viewerRef = ref(database, 'games/' + gameCode + '/viewers/' + viewerId);
-            
-            set(viewerRef, {
-                joined: Date.now()
-            });
-            
-            // Remove self on disconnect
+            set(viewerRef, { joined: Date.now() });
             onDisconnect(viewerRef).remove();
             
-            // Listen for game updates
-            listenToGameUpdates(gameCode);
-            
-            resolve();
-        }, { onlyOnce: true });
+            // Return players so UI can build selection list
+            resolve(players);
+        }).catch(reject);
     });
 }
 
 /**
- * Sync current game state to Firebase (host only)
+ * Attempt to claim a player slot
+ * @returns {Promise<boolean>} true if successful, false if taken
  */
+async function claimPlayerSlot(playerIdx) {
+    if (!state.gameCode || !state.viewerId) return false;
+    
+    const claimRef = ref(database, `games/${state.gameCode}/claims/${playerIdx}`);
+    
+    const result = await runTransaction(claimRef, (currentClaim) => {
+        if (currentClaim === null) {
+            // It's free! Claim it.
+            return state.viewerId;
+        } else {
+            // Already taken, abort
+            return; 
+        }
+    });
+
+    if (result.committed) {
+        state.viewingAsPlayerIdx = playerIdx;
+        // Remove claim on disconnect
+        onDisconnect(claimRef).remove();
+        // Start listening to game updates NOW
+        listenToGameUpdates(state.gameCode);
+        return true;
+    } else {
+        return false;
+    }
+}
+
+/**
+ * Listen for changes to claimed slots to update UI
+ */
+function listenToClaims(callback) {
+    const claimsRef = ref(database, `games/${state.gameCode}/claims`);
+    return onValue(claimsRef, (snapshot) => {
+        const claims = snapshot.val() || {};
+        callback(claims);
+    });
+}
+
 function syncToFirebase() {
     if (!state.isHost || !state.firebaseRef || !state.currentGame) return;
     
-    // Explicitly handle undefined values by defaulting to null
-    // This object construction ensures we don't accidentally pass an undefined property
     const rawData = {
         gameKey: state.gameKey,
         classData: {
@@ -112,8 +144,6 @@ function syncToFirebase() {
             round: state.currentGame.round || 0,
             dealCount: state.currentGame.dealCount || 0,
             isGameOver: state.currentGame.isGameOver || false,
-            
-            // CRITICAL FIX: The || null prevents "undefined" errors for games that don't use these fields
             randomMap: state.currentGame.randomMap || null,
             phase: state.currentGame.phase || null,
             handSize: state.currentGame.handSize || null,
@@ -123,84 +153,63 @@ function syncToFirebase() {
         }
     };
 
-    // Double safety: deep clean the object to ensure valid JSON (converts any lingering undefined to null)
     let dataToSync;
     try {
         dataToSync = JSON.parse(JSON.stringify(rawData, (k, v) => (v === undefined ? null : v)));
     } catch (e) {
-        console.error("Error sanitizing game data:", e);
+        console.error("Error sanitizing:", e);
         return;
     }
     
-    const gameStateRef = ref(database, 'games/' + state.gameCode + '/gameState');
-    set(gameStateRef, dataToSync).catch(err => {
-        console.error("Firebase sync failed:", err);
-    });
+    set(ref(database, 'games/' + state.gameCode + '/gameState'), dataToSync);
 }
 
-/**
- * Listen for game state updates (viewers only)
- */
 function listenToGameUpdates(gameCode) {
     const gameStateRef = ref(database, 'games/' + gameCode + '/gameState');
     
     onValue(gameStateRef, (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
-        
-        // Restore game from Firebase data
         restoreGameFromFirebase(data);
-        
-        // Re-render game screen
-        if (typeof renderGame === 'function') {
-            renderGame();
-        }
+        if (typeof renderGame === 'function') renderGame();
     });
 }
 
-/**
- * Restore game state from Firebase data
- */
 function restoreGameFromFirebase(parsed) {
     state.gameKey = parsed.gameKey;
     const conf = GAMES[state.gameKey];
     const cd = parsed.classData;
     const savedSettings = cd.settings || {};
     
-    // Create appropriate game instance
     const GameClass = getGameClass(state.gameKey);
     state.currentGame = new GameClass(conf, cd.players, savedSettings);
-    
-    // Restore all properties
     Object.assign(state.currentGame, cd);
     
-    // Setup UI theme
     document.body.className = `game-${state.gameKey}`;
     document.documentElement.style.setProperty('--primary', conf.color);
 }
 
-/**
- * Clean up Firebase connection
- */
 function cleanupFirebase() {
     if (!state.firebaseRef) return;
-    
     if (state.isHost) {
-        // Host: delete entire game
         remove(state.firebaseRef);
+    } else if (state.viewingAsPlayerIdx !== null) {
+        // Remove our claim if we leave
+        remove(ref(database, `games/${state.gameCode}/claims/${state.viewingAsPlayerIdx}`));
     }
-    
     state.firebaseRef = null;
     state.gameCode = null;
     state.isHost = false;
     state.isViewer = false;
+    state.viewingAsPlayerIdx = null;
 }
 
-// Make functions globally available
 window.FirebaseAPI = {
     generateGameCode,
     hostGame,
     joinGame,
+    claimPlayerSlot,
+    listenToClaims,
     syncToFirebase,
     cleanupFirebase
 };

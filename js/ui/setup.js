@@ -104,6 +104,14 @@ async function attemptJoinGame() {
         // Step 1: Connect and get players list
         const players = await window.FirebaseAPI.joinGame(code);
         
+        if (!players || players.length === 0) {
+            console.error("No players found. Game State:", state);
+            showAlert("Game found, but no players are listed yet. Has the host started the game?");
+            joinBtn.innerText = "Join";
+            joinBtn.disabled = false;
+            return;
+        }
+
         // Step 2: Show Identity Selection
         showIdentitySelection(players);
         
@@ -189,8 +197,6 @@ async function selectIdentity(idx, name) {
         closeJoinModal();
         document.getElementById('setup-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
-        
-        // We will now see the game render via the listener started in claimPlayerSlot
     } else {
         showAlert("Sorry, that spot was just taken!");
         btn.innerText = originalText;
