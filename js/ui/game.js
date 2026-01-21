@@ -14,10 +14,13 @@ function renderGame() {
     let isGameOver = game.isGameOver;
     let roundLabel = `${conf.name}: Round ${game.round}`;
     
+    // Get current viewer count (stored in state by firebase.js)
+    let vCount = state.viewerCount || 0;
+    
     // Add multiplayer badge
     if (state.isHost) {
-        // UPDATED: Display the Game Code in the header
-        roundLabel = `🎮 HOST: ${state.gameCode} • ${roundLabel}`;
+        // UPDATED: Added a span with an ID so firebase.js can update it live
+        roundLabel = `🎮 HOST: ${state.gameCode} (<span id="header-viewer-count">${vCount}</span> 👤) • ${roundLabel}`;
     } else if (state.isViewer) {
         roundLabel = '👀 VIEWING • ' + roundLabel;
     }
@@ -27,7 +30,8 @@ function renderGame() {
         
         // UPDATED: Handle Old Hell specific label with Game Code
         if (state.isHost) {
-            roundLabel = `🎮 HOST: ${state.gameCode} • ${baseLabel}`;
+            // UPDATED: Added live viewer count span here too
+            roundLabel = `🎮 HOST: ${state.gameCode} (<span id="header-viewer-count">${vCount}</span> 👤) • ${baseLabel}`;
         } else if (state.isViewer) {
             roundLabel = '👀 VIEWING • ' + baseLabel;
         } else {
@@ -100,7 +104,9 @@ function renderGame() {
         document.getElementById('finish-btn').innerText = "Finish & Save";
     }
     
-    document.getElementById('round-label').innerText = roundLabel;
+    // CRITICAL UPDATE: Changed innerText to innerHTML so our <span> tag works
+    document.getElementById('round-label').innerHTML = roundLabel;
+    
     document.getElementById('hero-content').innerHTML = hero;
     
     const area = document.getElementById('input-area');
