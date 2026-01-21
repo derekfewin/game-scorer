@@ -23,7 +23,15 @@ function saveState() {
         }
     };
     
+    // Save locally
     localStorage.setItem('cardScorerSave', JSON.stringify(dataToSave));
+    
+    // Sync to Firebase if hosting
+    if (state.isHost) {
+        import('./firebase.js').then(module => {
+            module.syncToFirebase();
+        });
+    }
 }
 
 function checkRestore() {
