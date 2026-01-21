@@ -3,7 +3,7 @@
  * Handles real-time multiplayer sync
  */
 
-console.log("🔥 FIREBASE MODULE LOADED: FIXED NAME DISPLAY v4");
+console.log("🔥 FIREBASE MODULE LOADED: FINAL NAME DISPLAY FIX v5");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue, remove, onDisconnect, runTransaction } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
@@ -41,84 +41,52 @@ function hostGame(gameCode) {
 }
 
 function updateHostUIWithConnectedPlayers(claims) {
-    // Claims is an object like: { "0": "viewer_123", "2": "viewer_456" }
+    // Store claims in state so we can access them during render
+    state.connectedViewers = claims;
+    
     const claimedIndices = Object.keys(claims).map(Number);
     const count = claimedIndices.length;
     state.viewerCount = count;
     
-    // Update count display in game header (if game started)
+    console.log('📊 Connected viewers:', claims);
+    console.log('📊 Player indices:', claimedIndices);
+    
+    // Update count in game header
     const headerCountEl = document.getElementById('header-viewer-count');
-    if (headerCountEl) headerCountEl.innerText = count;
+    if (headerCountEl) {
+        headerCountEl.innerText = count;
+    }
 
-    // Update list on Setup/Name Screen (if waiting)
+    // If on name entry screen (before game starts)
     const viewerListEl = document.getElementById('viewer-list-display');
     if (viewerListEl) {
         if (count === 0) {
             viewerListEl.innerHTML = '<span style="color:#999; font-style:italic">Waiting for players...</span>';
         } else {
-            let names = [];
-            claimedIndices.forEach(idx => {
-                let name = getPlayerNameFromIndex(idx);
-                if (name) names.push(name);
-            });
-            
-            if (names.length > 0) {
-                viewerListEl.innerHTML = `<strong>Connected:</strong> ${names.join(', ')}`;
-            } else {
-                viewerListEl.innerHTML = `<strong>${count} viewer(s) connected</strong> (names loading...)`;
-            }
+            // Game hasn't started yet, can't show names
+            viewerListEl.innerHTML = `<strong>${count} viewer(s) connected</strong><br><span style="font-size:0.85em; color:#666;">(Names will appear after you start the game)</span>`;
         }
+    }
+    
+    // If game is active, trigger re-render to update player rows
+    if (state.currentGame && typeof renderGame === 'function') {
+        renderGame();
     }
 }
 
 /**
- * Get player name from index by checking available sources
+ * Get list of connected viewer indices
  */
-function getPlayerNameFromIndex(idx) {
-    // Priority 1: If game is running, use game object
-    if (state.currentGame && state.currentGame.players && state.currentGame.players[idx]) {
-        return state.currentGame.players[idx].name;
-    }
-    
-    // Priority 2: Check DOM inputs (name entry screen)
-    // Detect if we're in team mode
-    const teamLabels = document.querySelectorAll('.team-label');
-    const isTeamMode = teamLabels.length > 0;
-    
-    if (isTeamMode) {
-        // Team mode: idx 0 = Team 1-a, idx 1 = Team 1-b, idx 2 = Team 2-a, etc.
-        let teamNum = Math.floor(idx / 2) + 1;
-        let suffix = (idx % 2 === 0) ? 'a' : 'b';
-        let selectId = `n-${teamNum}-${suffix}`;
-        let customId = `c-${teamNum}-${suffix}`;
-        
-        let select = document.getElementById(selectId);
-        if (select) {
-            if (select.value === 'CUSTOM') {
-                let customInput = document.getElementById(customId);
-                if (customInput && customInput.value) return customInput.value;
-            } else if (select.value) {
-                return select.value;
-            }
-        }
-    } else {
-        // Solo mode: idx 0 = n-1, idx 1 = n-2, etc.
-        let selectId = `n-${idx + 1}`;
-        let customId = `c-${idx + 1}`;
-        
-        let select = document.getElementById(selectId);
-        if (select) {
-            if (select.value === 'CUSTOM') {
-                let customInput = document.getElementById(customId);
-                if (customInput && customInput.value) return customInput.value;
-            } else if (select.value) {
-                return select.value;
-            }
-        }
-    }
-    
-    // Fallback
-    return `Player ${idx + 1}`;
+function getConnectedViewerIndices() {
+    if (!state.connectedViewers) return [];
+    return Object.keys(state.connectedViewers).map(Number);
+}
+
+/**
+ * Check if a specific player index has a viewer connected
+ */
+function isPlayerConnected(playerIdx) {
+    return state.connectedViewers && state.connectedViewers[playerIdx] !== undefined;
 }
 
 /**
@@ -144,7 +112,7 @@ async function joinGame(gameCode) {
                 console.warn("Player data missing - game hasn't started yet");
             }
 
-            // Register as viewer (initially anonymous)
+            // Register as viewer
             const viewerId = 'viewer_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
             state.viewerId = viewerId;
             state.gameCode = gameCode;
@@ -171,9 +139,9 @@ async function claimPlayerSlot(playerIdx) {
     
     const result = await runTransaction(claimRef, (currentClaim) => {
         if (currentClaim === null) {
-            return state.viewerId; // Claim it
+            return state.viewerId;
         } else {
-            return; // Abort - already taken
+            return; // Already taken
         }
     });
 
@@ -273,6 +241,7 @@ function cleanupFirebase() {
     state.isViewer = false;
     state.viewingAsPlayerIdx = null;
     state.viewerId = null;
+    state.connectedViewers = null;
 }
 
 window.FirebaseAPI = {
@@ -282,5 +251,7 @@ window.FirebaseAPI = {
     claimPlayerSlot,
     listenToClaims,
     syncToFirebase,
-    cleanupFirebase
+    cleanupFirebase,
+    isPlayerConnected,
+    getConnectedViewerIndices
 };

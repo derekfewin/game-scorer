@@ -19,7 +19,6 @@ function renderGame() {
     if (state.isHost) {
         roundLabel = `🎮 HOST: ${state.gameCode} (<span id="header-viewer-count">${vCount}</span> 👤) • ${roundLabel}`;
     } else if (state.isViewer) {
-        // Show who I am
         let myName = "Spectator";
         if (state.viewingAsPlayerIdx !== null && game.players[state.viewingAsPlayerIdx]) {
             myName = game.players[state.viewingAsPlayerIdx].name;
@@ -187,6 +186,11 @@ function createPlayerRow(p, i) {
         if(state.gameKey === 'mexicantrain') label = "STARTER";
         info += `<span class="dealer-badge">${label}</span>`;
     }
+    
+    // ADD VIEWER INDICATOR (Host only)
+    if (state.isHost && window.FirebaseAPI && window.FirebaseAPI.isPlayerConnected(i)) {
+        info += `<span class="dealer-badge" style="background:#2980b9; margin-left:4px;">👁️ LIVE</span>`;
+    }
 
     info += `</span></div>`;
 
@@ -195,12 +199,10 @@ function createPlayerRow(p, i) {
         let goalTxt = game.randomMap[i][game.round-1];
         
         if (state.isViewer) {
-            // VIEWERS: Always show goal (no peek needed)
             sub = `<span class="p-sub" style="color:#2980b9; font-weight:bold;">
                     Goal: ${goalTxt}
                   </span>`;
         } else {
-            // PLAYERS: Keep peek button
             sub = `<button class="btn-peek" 
                     onmousedown="startPeek(this, '${goalTxt}')" 
                     onmouseup="endPeek(this)" 

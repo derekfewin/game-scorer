@@ -14,4 +14,5 @@ let state = {
     viewerId: null,          // Unique ID for this browser session
     viewingAsPlayerIdx: null, // The index of the player we are "being" (0, 1, 2...)
     firebaseRef: null
+	connectedViewers: null
 };
