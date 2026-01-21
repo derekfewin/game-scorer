@@ -90,35 +90,38 @@ async function joinGame(gameCode) {
 function syncToFirebase() {
     if (!state.isHost || !state.firebaseRef || !state.currentGame) return;
     
+    // Explicitly handle undefined values by defaulting to null
     const rawData = {
         gameKey: state.gameKey,
         classData: {
             players: state.currentGame.players,
-            history: state.currentGame.history,
-            round: state.currentGame.round,
-            dealCount: state.currentGame.dealCount,
-            isGameOver: state.currentGame.isGameOver,
-            randomMap: state.currentGame.randomMap,
-            phase: state.currentGame.phase,
-            handSize: state.currentGame.handSize,
-            currentTrump: state.currentGame.currentTrump,
-            manualStarter: state.currentGame.manualStarter,
-            settings: state.currentGame.settings
+            history: state.currentGame.history || [],
+            round: state.currentGame.round || 0,
+            dealCount: state.currentGame.dealCount || 0,
+            isGameOver: state.currentGame.isGameOver || false,
+            // Defaults prevent "value contains undefined" errors
+            randomMap: state.currentGame.randomMap || null,
+            phase: state.currentGame.phase || null,
+            handSize: state.currentGame.handSize || null,
+            currentTrump: state.currentGame.currentTrump || null,
+            manualStarter: state.currentGame.manualStarter || null,
+            settings: state.currentGame.settings || {}
         }
     };
 
-    // Sanitize data: Firebase cannot accept 'undefined', so we convert undefined to null
-    // We try to use the global cleanUndefined if available, otherwise do it inline
+    // Double safety: deep clean the object to ensure valid JSON (converts any lingering undefined to null)
     let dataToSync;
-    if (typeof cleanUndefined === 'function') {
-        dataToSync = cleanUndefined(rawData);
-    } else {
-        // Fallback if utils.js hasn't loaded or isn't accessible
+    try {
         dataToSync = JSON.parse(JSON.stringify(rawData, (k, v) => (v === undefined ? null : v)));
+    } catch (e) {
+        console.error("Error sanitizing game data:", e);
+        return;
     }
     
     const gameStateRef = ref(database, 'games/' + state.gameCode + '/gameState');
-    set(gameStateRef, dataToSync);
+    set(gameStateRef, dataToSync).catch(err => {
+        console.error("Firebase sync failed:", err);
+    });
 }
 
 /**
