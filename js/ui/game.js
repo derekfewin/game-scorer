@@ -14,8 +14,17 @@ function renderGame() {
     let isGameOver = game.isGameOver;
     let roundLabel = `${conf.name}: Round ${game.round}`;
     
+    // Add multiplayer badge
+    if (state.isHost) {
+        roundLabel = '🎮 HOSTING • ' + roundLabel;
+    } else if (state.isViewer) {
+        roundLabel = '👀 VIEWING • ' + roundLabel;
+    }
+    
     if (state.gameKey === 'oldhell') {
-        roundLabel = `Old Hell: ${game.handSize} Cards (${game.phase === 'bid' ? 'Bidding' : 'Scoring'})`;
+        const baseLabel = `Old Hell: ${game.handSize} Cards (${game.phase === 'bid' ? 'Bidding' : 'Scoring'})`;
+        roundLabel = state.isHost ? '🎮 HOSTING • ' + baseLabel : 
+                     state.isViewer ? '👀 VIEWING • ' + baseLabel : baseLabel;
     }
     
     let hero = game.getHeroContent();
@@ -66,9 +75,16 @@ function renderGame() {
     document.getElementById('game-over-banner').style.display = 'none';
     document.getElementById('action-btn').style.display = 'block';
     
-    document.getElementById('exit-controls').style.display = 'flex';
-    document.getElementById('abort-btn').style.display = 'block';
-    document.getElementById('finish-btn').innerText = "Finish & Save";
+    // Hide controls for viewers
+    if (state.isViewer) {
+        document.getElementById('action-btn').style.display = 'none';
+        document.getElementById('undo-btn').style.display = 'none';
+        document.getElementById('exit-controls').style.display = 'none';
+    } else {
+        document.getElementById('exit-controls').style.display = 'flex';
+        document.getElementById('abort-btn').style.display = 'block';
+        document.getElementById('finish-btn').innerText = "Finish & Save";
+    }
     
     document.getElementById('round-label').innerText = roundLabel;
     document.getElementById('hero-content').innerHTML = hero;
@@ -155,12 +171,21 @@ function createPlayerRow(p, i) {
     let sub = "";
     if (state.gameKey === 'shanghai' && game.randomMap && !game.settings.useTeams) {
         let goalTxt = game.randomMap[i][game.round-1];
-        sub = `<button class="btn-peek" 
-                onmousedown="startPeek(this, '${goalTxt}')" 
-                onmouseup="endPeek(this)" 
-                ontouchstart="startPeek(this, '${goalTxt}')" 
-                ontouchend="endPeek(this)"
-                data-orig="👁️ Hold to Peek">👁️ Hold to Peek</button>`;
+        
+        if (state.isViewer) {
+            // VIEWERS: Always show goal (no peek needed)
+            sub = `<span class="p-sub" style="color:#2980b9; font-weight:bold;">
+                    Goal: ${goalTxt}
+                  </span>`;
+        } else {
+            // PLAYERS: Keep peek button
+            sub = `<button class="btn-peek" 
+                    onmousedown="startPeek(this, '${goalTxt}')" 
+                    onmouseup="endPeek(this)" 
+                    ontouchstart="startPeek(this, '${goalTxt}')" 
+                    ontouchend="endPeek(this)"
+                    data-orig="👁️ Hold to Peek">👁️ Hold to Peek</button>`;
+        }
     } else if (state.gameKey === 'spades' && game.phase === 'score') {
         let bidTxt = (p.isBlindNil) ? "Blind Nil" : (p.bid === 0 ? "Nil" : p.bid);
         let bagsTxt = (p.bags > 0) ? ` (Bags: ${p.bags})` : "";
@@ -196,8 +221,9 @@ function createPlayerRow(p, i) {
         </div>`;
     } else {
         let savedVal = (tempInput && tempInput[i] !== undefined) ? tempInput[i] : '';
+        let readonlyAttr = state.isViewer ? 'readonly disabled style="background:#f0f0f0; color:#999;"' : '';
         inputHtml = `<input type="number" inputmode="numeric" pattern="[0-9]*" class="p-input" data-idx="${i}" 
-            value="${savedVal}" placeholder="${game.phase === 'bid' ? 'Bid' : '0'}" onfocus="this.select()" oninput="clearError()">`;
+            ${readonlyAttr} value="${savedVal}" placeholder="${game.phase === 'bid' ? 'Bid' : '0'}" onfocus="this.select()" oninput="clearError()">`;
     }
         
     let helpers = "";
