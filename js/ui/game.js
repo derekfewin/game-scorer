@@ -15,32 +15,29 @@ function renderGame() {
     let roundLabel = `${conf.name}: Round ${game.round}`;
     let vCount = state.viewerCount || 0;
     
-    // Multiplayer Header
+    // HEADER LOGIC
+    let headerPrefix = "";
+    
     if (state.isHost) {
-        roundLabel = `🎮 HOST: ${state.gameCode} (<span id="header-viewer-count">${vCount}</span> 👤) • ${roundLabel}`;
+        // Host sees Code and Count
+        headerPrefix = `🎮 HOST: ${state.gameCode} (<span id="header-viewer-count">${vCount}</span> 👤)`;
     } else if (state.isViewer) {
+        // Viewer sees their own identity
         let myName = "Spectator";
         if (state.viewingAsPlayerIdx !== null && game.players[state.viewingAsPlayerIdx]) {
             myName = game.players[state.viewingAsPlayerIdx].name;
         }
-        roundLabel = `👤 ${myName} • ` + roundLabel;
+        headerPrefix = `👤 ${myName}`;
     }
     
-    // Handle Old Hell Label
+    if (headerPrefix) {
+        roundLabel = `${headerPrefix} • ${roundLabel}`;
+    }
+    
+    // Old Hell Special Header
     if (state.gameKey === 'oldhell') {
         const baseLabel = `Old Hell: ${game.handSize} Cards (${game.phase === 'bid' ? 'Bidding' : 'Scoring'})`;
-        
-        if (state.isHost) {
-            roundLabel = `🎮 HOST: ${state.gameCode} (<span id="header-viewer-count">${vCount}</span> 👤) • ${baseLabel}`;
-        } else if (state.isViewer) {
-            let myName = "Spectator";
-            if (state.viewingAsPlayerIdx !== null && game.players[state.viewingAsPlayerIdx]) {
-                myName = game.players[state.viewingAsPlayerIdx].name;
-            }
-            roundLabel = `👤 ${myName} • ${baseLabel}`;
-        } else {
-            roundLabel = baseLabel;
-        }
+        roundLabel = headerPrefix ? `${headerPrefix} • ${baseLabel}` : baseLabel;
     }
     
     let hero = game.getHeroContent();
