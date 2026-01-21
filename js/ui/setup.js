@@ -1,170 +1,161 @@
 /**
- * Firebase Integration
- * Handles real-time multiplayer sync
+ * Setup Screen
+ * Initial game configuration UI
  */
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
-
-// Your Firebase configuration
-const firebaseConfig = {
-    apiKey: "AIzaSyCIJLFgLAmY3xmjWuAn0k6agkPqpwaerfY",
-    authDomain: "game-scorer-69dfe.firebaseapp.com",
-    databaseURL: "https://game-scorer-69dfe-default-rtdb.firebaseio.com", // ADD THIS LINE!
-    projectId: "game-scorer-69dfe",
-    storageBucket: "game-scorer-69dfe.firebasestorage.app",
-    messagingSenderId: "732132954950",
-    appId: "1:732132954950:web:cf3d6ef15975d71ec8cb47",
-    measurementId: "G-LTP3GP2S2N"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
-
-/**
- * Generate a random 6-character game code
- */
-export function generateGameCode() {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-}
-
-/**
- * Host a new multiplayer game
- */
-export function hostGame(gameCode) {
-    state.gameCode = gameCode;
-    state.isHost = true;
-    state.isViewer = false;
-    state.firebaseRef = ref(database, 'games/' + gameCode);
+function initApp() {
+    resetTheme();
     
-    // Listen for viewer count
-    const viewersRef = ref(database, 'games/' + gameCode + '/viewers');
-    onValue(viewersRef, (snapshot) => {
-        const viewers = snapshot.val() || {};
-        const count = Object.keys(viewers).length;
-        const countEl = document.getElementById('viewer-count');
-        if (countEl) countEl.innerText = count;
-    });
-}
-
-/**
- * Join an existing game as a viewer
- */
-export async function joinGame(gameCode) {
-    return new Promise((resolve, reject) => {
-        state.gameCode = gameCode;
-        state.isHost = false;
-        state.isViewer = true;
-        state.firebaseRef = ref(database, 'games/' + gameCode);
-        
-        // Check if game exists
-        onValue(state.firebaseRef, (snapshot) => {
-            if (!snapshot.exists()) {
-                reject(new Error('Game not found'));
-                return;
-            }
-            
-            // Register as viewer
-            const viewerId = 'viewer_' + Date.now();
-            const viewerRef = ref(database, 'games/' + gameCode + '/viewers/' + viewerId);
-            
-            set(viewerRef, {
-                joined: Date.now()
-            });
-            
-            // Remove self on disconnect
-            onDisconnect(viewerRef).remove();
-            
-            // Listen for game updates
-            listenToGameUpdates(gameCode);
-            
-            resolve();
-        }, { onlyOnce: true });
-    });
-}
-
-/**
- * Sync current game state to Firebase (host only)
- */
-export function syncToFirebase() {
-    if (!state.isHost || !state.firebaseRef || !state.currentGame) return;
-    
-    const dataToSync = {
-        gameKey: state.gameKey,
-        classData: {
-            players: state.currentGame.players,
-            history: state.currentGame.history,
-            round: state.currentGame.round,
-            dealCount: state.currentGame.dealCount,
-            isGameOver: state.currentGame.isGameOver,
-            randomMap: state.currentGame.randomMap,
-            phase: state.currentGame.phase,
-            handSize: state.currentGame.handSize,
-            currentTrump: state.currentGame.currentTrump,
-            manualStarter: state.currentGame.manualStarter,
-            settings: state.currentGame.settings
-        }
-    };
-    
-    const gameStateRef = ref(database, 'games/' + state.gameCode + '/gameState');
-    set(gameStateRef, dataToSync);
-}
-
-/**
- * Listen for game state updates (viewers only)
- */
-function listenToGameUpdates(gameCode) {
-    const gameStateRef = ref(database, 'games/' + gameCode + '/gameState');
-    
-    onValue(gameStateRef, (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-        
-        // Restore game from Firebase data
-        restoreGameFromFirebase(data);
-        
-        // Re-render game screen
-        if (typeof renderGame === 'function') {
-            renderGame();
-        }
-    });
-}
-
-/**
- * Restore game state from Firebase data
- */
-function restoreGameFromFirebase(parsed) {
-    state.gameKey = parsed.gameKey;
-    const conf = GAMES[state.gameKey];
-    const cd = parsed.classData;
-    const savedSettings = cd.settings || {};
-    
-    // Create appropriate game instance
-    const GameClass = getGameClass(state.gameKey);
-    state.currentGame = new GameClass(conf, cd.players, savedSettings);
-    
-    // Restore all properties
-    Object.assign(state.currentGame, cd);
-    
-    // Setup UI theme
-    document.body.className = `game-${state.gameKey}`;
-    document.documentElement.style.setProperty('--primary', conf.color);
-}
-
-/**
- * Clean up Firebase connection
- */
-export function cleanupFirebase() {
-    if (!state.firebaseRef) return;
-    
-    if (state.isHost) {
-        // Host: delete entire game
-        remove(state.firebaseRef);
+    const sel = document.getElementById('game-select');
+    for (let key in GAMES) {
+        let opt = document.createElement('option');
+        opt.value = key;
+        opt.innerText = GAMES[key].name;
+        sel.appendChild(opt);
     }
     
-    state.firebaseRef = null;
-    state.gameCode = null;
+    checkRestore();
+    updateSetupUI();
+}
+
+function updateSetupUI() {
+    const key = document.getElementById('game-select').value;
+    let count = parseInt(document.getElementById('player-count').value) || 0;
+    const conf = GAMES[key];
+    
+    // Enforce max players
+    if(conf.maxPlayers && count > conf.maxPlayers) {
+        count = conf.maxPlayers;
+        document.getElementById('player-count').value = count;
+    }
+    
+    // Team option
+    const teamDiv = document.getElementById('team-option');
+    const teamLabel = teamDiv.querySelector('label');
+    const teamCheck = document.getElementById('use-teams');
+
+    if (conf.hasTeams) {
+        teamDiv.style.display = 'block';
+        if (count % 2 !== 0) {
+            teamCheck.disabled = true;
+            teamCheck.checked = false;
+            teamLabel.style.color = '#bbb';
+            teamLabel.childNodes[1].textContent = " Teams Unavailable (Need Even #)";
+        } else {
+            teamCheck.disabled = false;
+            teamLabel.style.color = 'var(--primary)';
+            teamLabel.childNodes[1].textContent = " Play in Teams?";
+        }
+    } else {
+        teamDiv.style.display = 'none';
+        teamCheck.checked = false;
+    }
+
+    // Randomize option
+    document.getElementById('random-option').style.display = 
+        conf.hasRandomize ? 'block' : 'none';
+    
+    // Target score option
+    const targetDiv = document.getElementById('target-option');
+    if (conf.type === 'target_score' || key === 'hearts') {
+        targetDiv.style.display = 'block';
+        document.getElementById('target-score').value = conf.target;
+    } else {
+        targetDiv.style.display = 'none';
+    }
+}
+
+// Multiplayer functions
+function showJoinPrompt() {
+    document.getElementById('join-modal').style.display = 'flex';
+    document.getElementById('game-code-input').value = '';
+    document.getElementById('game-code-input').focus();
+}
+
+function closeJoinModal() {
+    document.getElementById('join-modal').style.display = 'none';
+}
+
+async function attemptJoinGame() {
+    const code = document.getElementById('game-code-input').value.toUpperCase().trim();
+    
+    if (code.length !== 6) {
+        showAlert('Please enter a 6-digit code');
+        return;
+    }
+    
+    // Import Firebase functions dynamically
+    const { joinGame } = await import('./firebase.js');
+    
+    try {
+        await joinGame(code);
+        
+        closeJoinModal();
+        document.getElementById('setup-screen').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'block';
+        
+        // Game will be rendered by Firebase listener
+    } catch (error) {
+        showAlert('Game not found. Check the code and try again.');
+    }
+}
+
+function showNamesAsHost() {
+    // Set up hosting mode then show names
+    import('./firebase.js').then(module => {
+        const code = module.generateGameCode();
+        module.hostGame(code);
+        
+        // Show code display
+        document.getElementById('game-code-text').innerText = code;
+        document.getElementById('game-code-display').style.display = 'block';
+        
+        showNames();
+    });
+}
+
+function cancelMultiplayer() {
+    // Clean up Firebase if needed
+    if (state.isHost || state.isViewer) {
+        import('./firebase.js').then(module => {
+            module.cleanupFirebase();
+        });
+    }
+    
+    document.getElementById('game-code-display').style.display = 'none';
+    document.getElementById('name-screen').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'block';
+}
+
+function abortGame() {
+    showConfirm("Exit game? No stats will be saved.", () => {
+        // Clean up Firebase
+        if (state.isHost || state.isViewer) {
+            import('./firebase.js').then(module => {
+                module.cleanupFirebase();
+            });
+        }
+        
+        localStorage.removeItem('cardScorerSave');
+        softResetApp();
+    });
+}
+
+function finishGameNow() {
+    showConfirm("Finish game and save to leaderboard?", () => {
+        if(state.currentGame) state.currentGame.isGameOver = true;
+        finalizeGame();
+    });
+}
+
+function softResetApp() {
+    state.currentGame = null;
     state.isHost = false;
     state.isViewer = false;
+    state.gameCode = null;
+    
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'block';
+    resetTheme();
+    checkRestore();
 }
