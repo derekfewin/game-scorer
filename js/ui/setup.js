@@ -102,9 +102,9 @@ async function attemptJoinGame() {
     
     try {
         // Step 1: Connect and get players list (or null if lobby)
-        const players = await window.FirebaseAPI.joinGame(code);
+        const result = await window.FirebaseAPI.joinGame(code);
         
-        if (players === 'LOBBY') {
+        if (result === 'LOBBY') {
             // LOBBY MODE: Connected, but game hasn't started
             const modalBox = document.querySelector('#join-modal .modal-box');
             modalBox.innerHTML = `
@@ -117,14 +117,13 @@ async function attemptJoinGame() {
                 <button class="modal-btn cancel" onclick="cancelIdentitySelection()">Cancel</button>
             `;
             
-            // Poll for game start (by listening to game state updates)
-            // The listener in firebase.js handles the redirection once data arrives
-            window.FirebaseAPI.listenToGameUpdates(code);
+            // Poll for game start
+            checkForGameStart(code);
             return;
         }
 
         // Step 2: Show Identity Selection (Game already started)
-        showIdentitySelection(players);
+        showIdentitySelection(result);
         
     } catch (error) {
         console.error('Join error:', error);
@@ -134,11 +133,26 @@ async function attemptJoinGame() {
     }
 }
 
+function checkForGameStart(code) {
+    window.FirebaseAPI.listenToGameUpdates(code);
+    
+    // Check state periodically to see if players have arrived
+    const interval = setInterval(() => {
+        if(state.currentGame && state.currentGame.players && state.currentGame.players.length > 0) {
+            clearInterval(interval);
+            showIdentitySelection(state.currentGame.players);
+        }
+    }, 1000);
+    
+    state.lobbyInterval = interval;
+}
+
 // Global variable to hold unsubscribe function
 let claimUnsub = null;
 
 function showIdentitySelection(players) {
     const modalBox = document.querySelector('#join-modal .modal-box');
+    if(!modalBox) return; 
     
     // Rebuild Modal Content
     modalBox.innerHTML = `
@@ -216,6 +230,7 @@ async function selectIdentity(idx, name) {
 
 function cancelIdentitySelection() {
     if(claimUnsub) claimUnsub();
+    if(state.lobbyInterval) clearInterval(state.lobbyInterval);
     window.FirebaseAPI.cleanupFirebase();
     
     // Reset modal to original state
