@@ -101,19 +101,29 @@ async function attemptJoinGame() {
     joinBtn.disabled = true;
     
     try {
-        // Step 1: Connect and get players list
+        // Step 1: Connect and get players list (or null if lobby)
         const players = await window.FirebaseAPI.joinGame(code);
         
-        if (!players || players.length === 0) {
-            // Note: Players array is only created AFTER the host clicks "Start Game"
-            console.error("No players found. Game State:", state);
-            showAlert("Game found, but no players are listed yet. Please wait for the host to START the game, then try again.");
-            joinBtn.innerText = "Join";
-            joinBtn.disabled = false;
+        if (players === null) {
+            // LOBBY MODE: Connected, but game hasn't started
+            const modalBox = document.querySelector('#join-modal .modal-box');
+            modalBox.innerHTML = `
+                <h3 style="margin-top:0">Connected!</h3>
+                <div style="text-align:center; padding:20px;">
+                    <div style="font-size:40px; margin-bottom:10px;">⏳</div>
+                    <p style="color:#2c3e50; font-weight:bold;">Waiting for host to start...</p>
+                    <p style="color:#666; font-size:0.9em;">Please wait. You will be able to pick your name once the game begins.</p>
+                </div>
+                <button class="modal-btn cancel" onclick="cancelIdentitySelection()">Cancel</button>
+            `;
+            
+            // Poll for game start (by listening to game state updates)
+            // The listener in firebase.js handles the redirection once data arrives
+            window.FirebaseAPI.listenToGameUpdates(code);
             return;
         }
 
-        // Step 2: Show Identity Selection
+        // Step 2: Show Identity Selection (Game already started)
         showIdentitySelection(players);
         
     } catch (error) {
