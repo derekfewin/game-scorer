@@ -3,7 +3,7 @@
  * Handles real-time multiplayer sync
  */
 
-console.log("🔥 FIREBASE MODULE LOADED: LOBBY CREATION FIX v11");
+console.log("🔥 FIREBASE MODULE LOADED: DEBUG VERSION v13");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue, remove, onDisconnect, runTransaction } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
@@ -27,16 +27,23 @@ function generateGameCode() {
 }
 
 function hostGame(gameCode) {
+    console.log(`⚡ hostGame called for code: ${gameCode}`);
+    
     state.gameCode = gameCode;
     state.isHost = true;
     state.isViewer = false;
     state.firebaseRef = ref(database, 'games/' + gameCode);
     
-    // CRITICAL FIX: Create the game node immediately so it "exists" for viewers
-    // We add a timestamp and status to initialize the path.
+    // DEBUG: Explicitly log the creation attempt
+    console.log('⚡ Attempting to create game node at:', 'games/' + gameCode);
+    
     set(state.firebaseRef, {
         created: Date.now(),
         status: 'lobby'
+    }).then(() => {
+        console.log('✅ Game Lobby Initialized in Firebase!');
+    }).catch((err) => {
+        console.error('❌ LOBBY CREATION FAILED:', err);
     });
     
     // Listen for claims
@@ -51,6 +58,7 @@ function hostGame(gameCode) {
     onValue(viewersRef, (snapshot) => {
         const viewers = snapshot.val() || {};
         const count = Object.keys(viewers).length;
+        console.log(`👀 Viewer count updated: ${count}`);
         
         // Update lobby count (before game starts)
         if (!state.connectedViewers || Object.keys(state.connectedViewers).length === 0) {
@@ -134,7 +142,6 @@ async function joinGame(gameCode) {
 
 /**
  * Listen for game start (for viewers in lobby)
- * This is separate from listenToGameUpdates which is for active gameplay
  */
 function listenForGameStart(gameCode, onGameStart) {
     const gameStateRef = ref(database, 'games/' + gameCode + '/gameState');
@@ -219,9 +226,6 @@ function syncToFirebase() {
     set(ref(database, 'games/' + state.gameCode + '/gameState'), dataToSync);
 }
 
-/**
- * Listen for game updates during active gameplay
- */
 function listenToGameUpdates(gameCode) {
     const gameStateRef = ref(database, 'games/' + gameCode + '/gameState');
     
@@ -268,6 +272,29 @@ function cleanupFirebase() {
     state.viewingAsPlayerIdx = null;
     state.viewerId = null;
     state.connectedViewers = null;
+}
+
+function isPlayerConnected(playerIdx) {
+    return state.connectedViewers && state.connectedViewers[playerIdx] !== undefined;
+}
+
+// Helper to find name from index (Legacy helper, mostly handled by game object now)
+function resolveNameFromIndex(idx) {
+    if (state.currentGame && state.currentGame.players && state.currentGame.players[idx]) {
+        return state.currentGame.players[idx].name;
+    }
+    // Fallback for setup screen if needed
+    const inputs = document.querySelectorAll('.name-selector');
+    if(inputs.length > idx) {
+        let val = inputs[idx].value;
+        if(val === 'CUSTOM') {
+             let customId = inputs[idx].id.replace('n-', 'c-');
+             let customInput = document.getElementById(customId);
+             if(customInput) return customInput.value;
+        }
+        return val;
+    }
+    return `Player ${idx+1}`;
 }
 
 window.FirebaseAPI = {
