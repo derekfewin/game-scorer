@@ -1,6 +1,7 @@
 /**
  * Setup Screen
  * Initial game configuration UI
+ * DEBUG VERSION with extensive logging
  */
 
 function initApp() {
@@ -23,13 +24,11 @@ function updateSetupUI() {
     let count = parseInt(document.getElementById('player-count').value) || 0;
     const conf = GAMES[key];
     
-    // Enforce max players
     if(conf.maxPlayers && count > conf.maxPlayers) {
         count = conf.maxPlayers;
         document.getElementById('player-count').value = count;
     }
     
-    // Team option
     const teamDiv = document.getElementById('team-option');
     const teamLabel = teamDiv.querySelector('label');
     const teamCheck = document.getElementById('use-teams');
@@ -51,11 +50,9 @@ function updateSetupUI() {
         teamCheck.checked = false;
     }
 
-    // Randomize option
     document.getElementById('random-option').style.display = 
         conf.hasRandomize ? 'block' : 'none';
     
-    // Target score option
     const targetDiv = document.getElementById('target-option');
     if (conf.type === 'target_score' || key === 'hearts') {
         targetDiv.style.display = 'block';
@@ -65,7 +62,6 @@ function updateSetupUI() {
     }
 }
 
-// Multiplayer functions
 function showJoinPrompt() {
     document.getElementById('join-modal').style.display = 'flex';
     document.getElementById('game-code-input').value = '';
@@ -76,104 +72,181 @@ function closeJoinModal() {
     document.getElementById('join-modal').style.display = 'none';
 }
 
+// Global variables for lobby management
+let lobbyUnsubscribe = null;
+let claimUnsub = null;
+
 /**
- * JOIN FLOW UPDATE:
- * 1. Verify code
- * 2. Connect to firebase
- * 3. Fetch players list
- * 4. Show "Who Are You?" selection
+ * JOIN FLOW with DEBUG logging
  */
 async function attemptJoinGame() {
+    console.log('🔍 attemptJoinGame() called');
+    
     const code = document.getElementById('game-code-input').value.toUpperCase().trim();
+    console.log('🔍 Code entered:', code);
     
     if (code.length !== 6) {
+        console.log('❌ Code validation failed');
         showAlert('Please enter a 6-digit code');
         return;
     }
     
     if (!window.FirebaseAPI) {
+        console.log('❌ FirebaseAPI not loaded');
         showAlert('Firebase is still loading. Please wait.');
         return;
     }
     
+    console.log('✅ FirebaseAPI available:', Object.keys(window.FirebaseAPI));
+    
     const joinBtn = document.querySelector('#join-modal .confirm');
+    const originalText = joinBtn.innerText;
     joinBtn.innerText = "Connecting...";
     joinBtn.disabled = true;
     
+    console.log('🔄 Calling FirebaseAPI.joinGame...');
+    
     try {
-        // Step 1: Connect and get players list (or null if lobby)
         const result = await window.FirebaseAPI.joinGame(code);
+        console.log('✅ joinGame() resolved with:', result);
         
         if (result === 'LOBBY') {
-            // LOBBY MODE: Connected, but game hasn't started
-            const modalBox = document.querySelector('#join-modal .modal-box');
-            modalBox.innerHTML = `
-                <h3 style="margin-top:0">Connected!</h3>
-                <div style="text-align:center; padding:20px;">
-                    <div style="font-size:40px; margin-bottom:10px;">⏳</div>
-                    <p style="color:#2c3e50; font-weight:bold;">Waiting for host to start...</p>
-                    <p style="color:#666; font-size:0.9em;">Please wait. You will be able to pick your name once the game begins.</p>
-                </div>
-                <button class="modal-btn cancel" onclick="cancelIdentitySelection()">Cancel</button>
-            `;
+            console.log('⏳ Result is LOBBY - showing waiting screen');
+            showLobbyWaiting();
             
-            // Poll for game start
-            checkForGameStart(code);
-            return;
+            console.log('👂 Setting up listenForGameStart...');
+            lobbyUnsubscribe = window.FirebaseAPI.listenForGameStart(code, (players) => {
+                console.log('🎮 GAME STARTED CALLBACK! Players:', players);
+                if (lobbyUnsubscribe) {
+                    console.log('🧹 Cleaning up lobby listener');
+                    lobbyUnsubscribe();
+                }
+                showIdentitySelection(players);
+            });
+            console.log('✅ Lobby listener set up, unsubscribe function:', typeof lobbyUnsubscribe);
+        } else if (Array.isArray(result)) {
+            console.log('🎮 Game already started with', result.length, 'players');
+            showIdentitySelection(result);
+        } else {
+            console.log('⚠️ Unexpected result type:', typeof result, result);
+            throw new Error('Unexpected join result');
         }
-
-        // Step 2: Show Identity Selection (Game already started)
-        showIdentitySelection(result);
         
     } catch (error) {
-        console.error('Join error:', error);
-        showAlert('Game not found. Check the code.');
-        joinBtn.innerText = "Join";
+        console.error('❌ JOIN ERROR:', error);
+        console.error('Error stack:', error.stack);
+        showAlert('Game not found. Check the code and try again.');
+        joinBtn.innerText = originalText;
         joinBtn.disabled = false;
     }
 }
 
-function checkForGameStart(code) {
-    window.FirebaseAPI.listenToGameUpdates(code);
+/**
+ * Show lobby waiting screen
+ */
+function showLobbyWaiting() {
+    console.log('🏠 showLobbyWaiting() called');
     
-    // Check state periodically to see if players have arrived
-    const interval = setInterval(() => {
-        if(state.currentGame && state.currentGame.players && state.currentGame.players.length > 0) {
-            clearInterval(interval);
-            showIdentitySelection(state.currentGame.players);
+    const modalBox = document.querySelector('#join-modal .modal-box');
+    if (!modalBox) {
+        console.error('❌ Modal box not found!');
+        return;
+    }
+    
+    modalBox.innerHTML = `
+        <h3 style="margin-top:0">Connected!</h3>
+        <div style="text-align:center; padding:30px 20px;">
+            <div id="lobby-spinner" style="font-size:60px; margin-bottom:15px;">⏳</div>
+            <p style="color:#2c3e50; font-weight:bold; font-size:1.1em; margin-bottom:10px;">
+                Waiting for host to start the game...
+            </p>
+            <p style="color:#666; font-size:0.9em; line-height:1.5;">
+                You'll be able to select your player name once the host clicks "Start Game"
+            </p>
+        </div>
+        <button class="modal-btn cancel" onclick="cancelLobbyWait()">Cancel</button>
+    `;
+    
+    // Add pulsing animation with CSS
+    const style = document.createElement('style');
+    style.id = 'lobby-pulse-style';
+    style.innerHTML = `
+        @keyframes lobbyPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.15); opacity: 0.7; }
         }
-    }, 1000);
+        #lobby-spinner {
+            animation: lobbyPulse 1.5s ease-in-out infinite;
+        }
+    `;
     
-    state.lobbyInterval = interval;
+    // Remove old style if exists
+    const oldStyle = document.getElementById('lobby-pulse-style');
+    if (oldStyle) oldStyle.remove();
+    
+    document.head.appendChild(style);
+    
+    console.log('✅ Lobby waiting screen rendered');
 }
 
-// Global variable to hold unsubscribe function
-let claimUnsub = null;
-
-function showIdentitySelection(players) {
-    const modalBox = document.querySelector('#join-modal .modal-box');
-    if(!modalBox) return; 
+/**
+ * Cancel lobby wait
+ */
+function cancelLobbyWait() {
+    console.log('🛑 cancelLobbyWait() called');
     
-    // Rebuild Modal Content
+    if (lobbyUnsubscribe) {
+        console.log('🧹 Unsubscribing from lobby listener');
+        lobbyUnsubscribe();
+        lobbyUnsubscribe = null;
+    }
+    
+    console.log('🧹 Cleaning up Firebase');
+    window.FirebaseAPI.cleanupFirebase();
+    
+    // Reset modal
+    const modalBox = document.querySelector('#join-modal .modal-box');
+    modalBox.innerHTML = `
+        <h3 style="margin-top:0">Join Game</h3>
+        <input type="text" id="game-code-input" placeholder="Enter 6-digit code" 
+               maxlength="6" style="text-align:center; font-size:24px; letter-spacing:5px; text-transform:uppercase;">
+        <div class="modal-btn-row" style="margin-top:20px">
+            <button class="modal-btn cancel" onclick="closeJoinModal()">Cancel</button>
+            <button class="modal-btn confirm" onclick="attemptJoinGame()">Join</button>
+        </div>
+    `;
+    closeJoinModal();
+}
+
+/**
+ * Show identity selection screen
+ */
+function showIdentitySelection(players) {
+    console.log('👤 showIdentitySelection() called with', players.length, 'players');
+    
+    const modalBox = document.querySelector('#join-modal .modal-box');
+    
     modalBox.innerHTML = `
         <h3 style="margin-top:0">Who are you?</h3>
-        <p style="color:#666; font-size:0.9em; margin-bottom:15px;">Select your name to join.</p>
+        <p style="color:#666; font-size:0.9em; margin-bottom:15px;">Select your name to join the game.</p>
         <div id="player-select-list" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; max-height:300px; overflow-y:auto; margin-bottom:15px;">
-            <!-- Buttons go here -->
+            <!-- Buttons generated below -->
         </div>
         <button class="modal-btn cancel" onclick="cancelIdentitySelection()">Cancel</button>
     `;
     
     const list = document.getElementById('player-select-list');
     
-    // Generate Buttons
     players.forEach((p, i) => {
+        console.log(`  Creating button for player ${i}:`, p.name);
+        
         let btn = document.createElement('button');
         btn.className = 'btn-outline';
         btn.style.width = '100%';
-        btn.style.textAlign = 'left';
-        btn.style.padding = '10px';
+        btn.style.textAlign = 'center';
+        btn.style.padding = '15px 10px';
         btn.style.margin = '0';
+        btn.style.fontSize = '1.1em';
         btn.innerText = p.name;
         btn.id = `claim-btn-${i}`;
         
@@ -182,13 +255,13 @@ function showIdentitySelection(players) {
         list.appendChild(btn);
     });
     
-    // Listen for taken spots in real-time
+    console.log('👂 Setting up claim listener...');
     claimUnsub = window.FirebaseAPI.listenToClaims((claims) => {
+        console.log('📢 Claims updated:', claims);
         players.forEach((p, i) => {
             const btn = document.getElementById(`claim-btn-${i}`);
             if(btn) {
                 if (claims[i]) {
-                    // Spot is taken
                     btn.disabled = true;
                     btn.style.opacity = '0.5';
                     btn.style.textDecoration = 'line-through';
@@ -196,7 +269,6 @@ function showIdentitySelection(players) {
                     btn.style.borderColor = '#ccc';
                     btn.style.background = '#f9f9f9';
                 } else {
-                    // Spot is free
                     btn.disabled = false;
                     btn.style.opacity = '1';
                     btn.style.textDecoration = 'none';
@@ -209,31 +281,54 @@ function showIdentitySelection(players) {
     });
 }
 
+/**
+ * Select identity and claim slot
+ */
 async function selectIdentity(idx, name) {
+    console.log(`🎯 Attempting to claim slot ${idx} (${name})`);
+    
     const btn = document.getElementById(`claim-btn-${idx}`);
     const originalText = btn.innerText;
     btn.innerText = "Joining...";
+    btn.disabled = true;
     
     const success = await window.FirebaseAPI.claimPlayerSlot(idx);
+    console.log('Claim result:', success ? '✅ Success' : '❌ Failed');
     
     if (success) {
-        // Success! Enter game.
-        if(claimUnsub) claimUnsub(); // Stop listening to claims
+        if(claimUnsub) {
+            console.log('🧹 Cleaning up claim listener');
+            claimUnsub();
+        }
         closeJoinModal();
         document.getElementById('setup-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
+        
+        if (typeof renderGame === 'function') {
+            console.log('🎨 Rendering game...');
+            renderGame();
+        }
     } else {
         showAlert("Sorry, that spot was just taken!");
         btn.innerText = originalText;
+        btn.disabled = false;
     }
 }
 
+/**
+ * Cancel identity selection
+ */
 function cancelIdentitySelection() {
-    if(claimUnsub) claimUnsub();
-    if(state.lobbyInterval) clearInterval(state.lobbyInterval);
+    console.log('🛑 cancelIdentitySelection() called');
+    
+    if(claimUnsub) {
+        console.log('🧹 Cleaning up claim listener');
+        claimUnsub();
+    }
+    
+    console.log('🧹 Cleaning up Firebase');
     window.FirebaseAPI.cleanupFirebase();
     
-    // Reset modal to original state
     const modalBox = document.querySelector('#join-modal .modal-box');
     modalBox.innerHTML = `
         <h3 style="margin-top:0">Join Game</h3>
