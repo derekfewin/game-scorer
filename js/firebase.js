@@ -3,7 +3,7 @@
  * Handles real-time multiplayer sync
  */
 
-console.log("🔥 FIREBASE MODULE LOADED: DEBUG VERSION v13");
+console.log("🔥 FIREBASE MODULE LOADED: DEBUG VERSION v13.1");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue, remove, onDisconnect, runTransaction } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
@@ -272,10 +272,6 @@ function cleanupFirebase() {
     state.viewingAsPlayerIdx = null;
     state.viewerId = null;
     state.connectedViewers = null;
-}
-
-function isPlayerConnected(playerIdx) {
-    return state.connectedViewers && state.connectedViewers[playerIdx] !== undefined;
 }
 
 // Helper to find name from index (Legacy helper, mostly handled by game object now)
