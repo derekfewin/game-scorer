@@ -104,7 +104,7 @@ async function attemptJoinGame() {
         // Step 1: Connect and get players list (or null if lobby)
         const players = await window.FirebaseAPI.joinGame(code);
         
-        if (players === null) {
+        if (players === 'LOBBY') {
             // LOBBY MODE: Connected, but game hasn't started
             const modalBox = document.querySelector('#join-modal .modal-box');
             modalBox.innerHTML = `
