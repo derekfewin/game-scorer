@@ -3,7 +3,7 @@
  * Handles real-time multiplayer sync
  */
 
-console.log("🔥 FIREBASE MODULE LOADED: LOBBY COMPLETE FIX v10");
+console.log("🔥 FIREBASE MODULE LOADED: LOBBY CREATION FIX v11");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue, remove, onDisconnect, runTransaction } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
@@ -31,6 +31,13 @@ function hostGame(gameCode) {
     state.isHost = true;
     state.isViewer = false;
     state.firebaseRef = ref(database, 'games/' + gameCode);
+    
+    // CRITICAL FIX: Create the game node immediately so it "exists" for viewers
+    // We add a timestamp and status to initialize the path.
+    set(state.firebaseRef, {
+        created: Date.now(),
+        status: 'lobby'
+    });
     
     // Listen for claims
     const claimsRef = ref(database, 'games/' + gameCode + '/claims');
@@ -92,6 +99,7 @@ async function joinGame(gameCode) {
         
         get(gameRef).then((snapshot) => {
             if (!snapshot.exists()) {
+                console.warn(`Game ${gameCode} does not exist.`);
                 reject(new Error('Game not found'));
                 return;
             }
@@ -114,10 +122,10 @@ async function joinGame(gameCode) {
             
             // Check if game has started
             if (data.gameState && data.gameState.classData && Array.isArray(data.gameState.classData.players)) {
-                console.log('🎮 Game already started, returning players');
+                console.log('🎮 Game already started');
                 resolve(data.gameState.classData.players);
             } else {
-                console.log('⏳ Game not started yet, entering LOBBY mode');
+                console.log('⏳ Game exists but not started -> LOBBY');
                 resolve('LOBBY');
             }
         }).catch(reject);
@@ -137,7 +145,6 @@ function listenForGameStart(gameCode, onGameStart) {
         if (data && data.classData && Array.isArray(data.classData.players)) {
             console.log('🎮 Game started! Players detected:', data.classData.players.length);
             onGameStart(data.classData.players);
-            // Don't unsubscribe - we'll use this for ongoing updates after claiming
         }
     });
     
@@ -171,7 +178,7 @@ async function claimPlayerSlot(playerIdx) {
 }
 
 /**
- * Listen for claim changes (used by join modal to show taken spots)
+ * Listen for claim changes
  */
 function listenToClaims(callback) {
     const claimsRef = ref(database, `games/${state.gameCode}/claims`);
