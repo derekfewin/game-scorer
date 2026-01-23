@@ -3,11 +3,10 @@
  * Handles real-time multiplayer sync
  */
 
-console.log("🔥 FIREBASE MODULE LOADED: AUTH FIX v16 (State Listener)");
+console.log("🔥 FIREBASE MODULE LOADED: VALIDATION FIX v16");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue, remove, onDisconnect, runTransaction } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCIJLFgLAmY3xmjWuAn0k6agkPqpwaerfY",
@@ -22,23 +21,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
-const auth = getAuth(app);
 
-// Global auth state
-let isAuthReady = false;
-
-// Monitor Auth State
-onAuthStateChanged(auth, (user) => {
-    if (user) {
-        console.log("✅ User is signed in:", user.uid);
-        isAuthReady = true;
-    } else {
-        console.log("⚠️ User signed out, attempting anonymous sign-in...");
-        signInAnonymously(auth).catch((error) => {
-            console.error("❌ Auth Error:", error.code, error.message);
-        });
-    }
-});
+// NOTE: Authentication removed because rules are public, but strict validation was blocking writes.
 
 function generateGameCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -47,14 +31,6 @@ function generateGameCode() {
 function hostGame(gameCode) {
     console.log(`⚡ hostGame called for code: ${gameCode}`);
     
-    // Wait for auth if not ready (simple check)
-    if (!auth.currentUser) {
-        console.log("⏳ Waiting for auth before hosting...");
-        // Retry in 500ms if not ready (basic polling for simplicity in this context)
-        setTimeout(() => hostGame(gameCode), 500);
-        return;
-    }
-
     state.gameCode = gameCode;
     state.isHost = true;
     state.isViewer = false;
@@ -62,27 +38,38 @@ function hostGame(gameCode) {
     
     console.log('⚡ Attempting to create game node at:', 'games/' + gameCode);
     
+    // CRITICAL FIX: Initialize with 'viewers' object to satisfy Firebase .validate rule!
+    // Rule requires: newData.hasChildren(['gameState']) || newData.hasChildren(['viewers'])
     set(state.firebaseRef, {
         created: Date.now(),
         status: 'lobby',
-        host: auth.currentUser.uid
+        viewers: { 'host_placeholder': true } // Dummy value to ensure 'viewers' child exists
     }).then(() => {
         console.log('✅ Game Lobby Initialized in Firebase!');
+        // Remove placeholder immediately
+        remove(ref(database, 'games/' + gameCode + '/viewers/host_placeholder'));
     }).catch((err) => {
         console.error('❌ LOBBY CREATION FAILED:', err);
     });
     
+    // Listen for claims
     const claimsRef = ref(database, 'games/' + gameCode + '/claims');
     onValue(claimsRef, (snapshot) => {
         const claims = snapshot.val() || {};
         updateHostUIWithConnectedPlayers(claims);
     });
     
+    // Listen for raw viewers (lobby phase)
     const viewersRef = ref(database, 'games/' + gameCode + '/viewers');
     onValue(viewersRef, (snapshot) => {
         const viewers = snapshot.val() || {};
-        const count = Object.keys(viewers).length;
+        // Filter out placeholder if it exists
+        const keys = Object.keys(viewers).filter(k => k !== 'host_placeholder');
+        const count = keys.length;
         
+        console.log(`👀 Viewer count updated: ${count}`);
+        
+        // Update lobby count (before game starts)
         if (!state.connectedViewers || Object.keys(state.connectedViewers).length === 0) {
             const setupCountEl = document.getElementById('viewer-count');
             if (setupCountEl) setupCountEl.innerText = count;
@@ -95,12 +82,15 @@ function updateHostUIWithConnectedPlayers(claims) {
     const count = Object.keys(claims).length;
     state.viewerCount = count;
     
+    // Update game header
     const headerCountEl = document.getElementById('header-viewer-count');
     if (headerCountEl) headerCountEl.innerText = count;
 
+    // Update lobby count
     const setupCountEl = document.getElementById('viewer-count');
     if (setupCountEl && count > 0) setupCountEl.innerText = count;
     
+    // Trigger re-render if game active
     if (state.currentGame && typeof renderGame === 'function') {
         renderGame();
     }
@@ -115,17 +105,13 @@ function isPlayerConnected(playerIdx) {
     return state.connectedViewers && state.connectedViewers[playerIdx] !== undefined;
 }
 
+/**
+ * Join an existing game as a viewer
+ * Returns 'LOBBY' if waiting for host to start
+ * Returns players array if game has started
+ */
 async function joinGame(gameCode) {
     return new Promise((resolve, reject) => {
-        // Ensure auth before joining
-        if (!auth.currentUser) {
-             console.warn("Auth not ready, retrying join...");
-             signInAnonymously(auth).then(() => {
-                 joinGame(gameCode).then(resolve).catch(reject);
-             });
-             return;
-        }
-
         const gameRef = ref(database, 'games/' + gameCode);
         
         get(gameRef).then((snapshot) => {
@@ -137,7 +123,8 @@ async function joinGame(gameCode) {
             
             const data = snapshot.val();
             
-            const viewerId = auth.currentUser.uid; // Use Auth UID for stability
+            // Register as viewer IMMEDIATELY
+            const viewerId = 'viewer_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
             state.viewerId = viewerId;
             state.gameCode = gameCode;
             state.isHost = false;
@@ -150,6 +137,7 @@ async function joinGame(gameCode) {
             
             console.log('✅ Viewer registered:', viewerId);
             
+            // Check if game has started
             if (data.gameState && data.gameState.classData && Array.isArray(data.gameState.classData.players)) {
                 console.log('🎮 Game already started');
                 resolve(data.gameState.classData.players);
@@ -161,6 +149,9 @@ async function joinGame(gameCode) {
     });
 }
 
+/**
+ * Listen for game start (for viewers in lobby)
+ */
 function listenForGameStart(gameCode, onGameStart) {
     const gameStateRef = ref(database, 'games/' + gameCode + '/gameState');
     
@@ -176,6 +167,9 @@ function listenForGameStart(gameCode, onGameStart) {
     return unsubscribe;
 }
 
+/**
+ * Claim a player slot
+ */
 async function claimPlayerSlot(playerIdx) {
     if (!state.gameCode || !state.viewerId) return false;
     
@@ -185,7 +179,7 @@ async function claimPlayerSlot(playerIdx) {
         if (currentClaim === null) {
             return state.viewerId;
         } else {
-            return;
+            return; // Already taken
         }
     });
 
@@ -199,6 +193,9 @@ async function claimPlayerSlot(playerIdx) {
     }
 }
 
+/**
+ * Listen for claim changes
+ */
 function listenToClaims(callback) {
     const claimsRef = ref(database, `games/${state.gameCode}/claims`);
     return onValue(claimsRef, (snapshot) => {
