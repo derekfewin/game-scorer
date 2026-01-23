@@ -79,6 +79,17 @@ button:active { opacity: 0.8; }
 .btn-undo { background: #7f8c8d; font-size: 0.9em; padding: 10px; margin-top: 20px; }
 .btn-exit { background: #95a5a6; margin-top: 20px; } 
 
+.btn-sm {
+    padding: 2px 8px;
+    font-size: 0.8em;
+    margin-left: 5px;
+    background: #e67e22;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
 /* Table */
 table { 
     width: 100%; 
