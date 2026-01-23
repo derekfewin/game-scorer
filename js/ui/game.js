@@ -97,11 +97,14 @@ function renderGame() {
     if (state.isViewer) {
         document.getElementById('action-btn').style.display = 'none';
         document.getElementById('undo-btn').style.display = 'none';
-        document.getElementById('exit-controls').style.display = 'none';
+        document.getElementById('exit-controls').style.display = 'flex';
+        document.getElementById('abort-btn').style.display = 'block';
+        document.getElementById('finish-btn').style.display = 'none';
     } else {
         document.getElementById('exit-controls').style.display = 'flex';
         document.getElementById('abort-btn').style.display = 'block';
         document.getElementById('finish-btn').innerText = "Finish & Save";
+        document.getElementById('finish-btn').style.display = 'block';
     }
     
     document.getElementById('round-label').innerHTML = roundLabel;
@@ -221,15 +224,6 @@ function renderViewerInfo(area, game, conf) {
         `;
         area.appendChild(trumpBox);
     }
-    
-    // Show waiting message
-    let waitBox = document.createElement('div');
-    waitBox.style.cssText = 'background:#f8f9fa; padding:30px 20px; border-radius:10px; text-align:center; color:#666;';
-    waitBox.innerHTML = `
-        <div style="font-size:3em; margin-bottom:10px;">⏳</div>
-        <div style="font-size:1.1em; font-weight:600;">Waiting for host to submit scores...</div>
-    `;
-    area.appendChild(waitBox);
 }
 
 function createPlayerRow(p, i) {
