@@ -349,22 +349,25 @@ function showHostIdentitySelection() {
     
     console.log('🎯 Host wants to claim a player slot');
     
-    const inputs = document.querySelectorAll('.name-selector');
+    const count = parseInt(document.getElementById('player-count').value);
+    const useTeams = isTeamsActive();
     const players = [];
     
-    inputs.forEach((inp, i) => {
+    // Build players array same way as startGame()
+    for(let i = 1; i <= count; i++) {
         let name;
-        const useTeams = isTeamsActive();
-        
         if(useTeams) {
-            let teamNum = Math.ceil((i+1) / 2);
-            let suffix = ((i+1) % 2 !== 0) ? 'a' : 'b';
+            let teamNum = Math.ceil(i / 2);
+            let suffix = (i % 2 !== 0) ? 'a' : 'b';
             name = getNameVal(`${teamNum}-${suffix}`);
         } else {
-            name = getNameVal(i+1);
+            name = getNameVal(i);
         }
         players.push(name);
-    });
+    }
+    
+    // Store players in a temporary variable for later reference
+    window.tempHostPlayers = players;
     
     // Create inline selection UI
     const container = document.getElementById('name-inputs');
@@ -409,10 +412,14 @@ async function hostClaimSlot(idx) {
         const claimContainer = document.getElementById('host-claim-container');
         if(claimContainer) claimContainer.style.display = 'none';
         
+        // Get the actual player name from our temporary array
+        const playerName = window.tempHostPlayers && window.tempHostPlayers[idx] 
+            ? window.tempHostPlayers[idx] 
+            : `Player ${idx+1}`;
+        
         // Update UI to show host is claimed
         const claimUI = document.getElementById('host-claim-ui');
         if(claimUI) {
-            const playerName = getNameVal(idx + 1);
             claimUI.innerHTML = `
                 <h3 style="margin-top:0; color:#27ae60; font-size:1.1em;">✓ You're Playing!</h3>
                 <p style="color:#2c3e50; font-weight:bold;">You are: ${playerName}</p>
