@@ -126,12 +126,24 @@ function renderGame() {
             if (state.gameKey === 'shanghai' && game.randomMap) {
                 let p1Idx = t * 2;
                 let goalTxt = game.randomMap[p1Idx][game.round - 1];
-                headerHtml += `<button class="btn-peek" 
-                    onmousedown="startPeek(this, '${goalTxt}')" 
-                    onmouseup="endPeek(this)" 
-                    ontouchstart="startPeek(this, '${goalTxt}')" 
-                    ontouchend="endPeek(this)"
-                    data-orig="👁️ Peek Team Goal">👁️ Peek Team Goal</button>`;
+                
+                // For viewers, show the goal directly if it's their team
+                if (state.isViewer) {
+                    let isMyTeam = (state.viewingAsPlayerIdx === p1Idx || state.viewingAsPlayerIdx === (p1Idx + 1));
+                    if (isMyTeam) {
+                        headerHtml += `<div class="team-goal-display">${goalTxt}</div>`;
+                    } else {
+                        headerHtml += `<div class="team-goal-display" style="color:#999;">Hidden</div>`;
+                    }
+                } else if (!state.isViewer) {
+                    // Host or solo game uses peek button
+                    headerHtml += `<button class="btn-peek" 
+                        onmousedown="startPeek(this, '${goalTxt}')" 
+                        onmouseup="endPeek(this)" 
+                        ontouchstart="startPeek(this, '${goalTxt}')" 
+                        ontouchend="endPeek(this)"
+                        data-orig="👁️ Peek Team Goal">👁️ Peek Team Goal</button>`;
+                }
             }
             teamBox.innerHTML = headerHtml;
             

@@ -37,14 +37,12 @@ function showNames() {
             html += `<span class="team-label">Team ${i}</span>`;
             
             // Player 1 of team
-            html += `<label>Player 1</label>${nameDropdown(i+'-a')}`;
-            html += getDealerNote(i, true);
+            html += `<label>Player 1${getDealerNote(i, true)}</label>${nameDropdown(i+'-a')}`;
             
             // Player 2 of team
             html += `<label style="margin-top:10px;">Player 2</label>${nameDropdown(i+'-b')}`;
         } else {
-            html += `<label>Player ${i}</label>${nameDropdown(i)}`;
-            html += getDealerNote(i, false);
+            html += `<label>Player ${i}${getDealerNote(i, false)}</label>${nameDropdown(i)}`;
         }
         html += `</div>`;
         container.innerHTML += html;
@@ -56,11 +54,9 @@ function getDealerNote(position, isTeam) {
     const ordinals = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth'];
     const ordinal = ordinals[position - 1] || `#${position}`;
     
-    return `<div style="background:#e8f4fd; padding:8px; border-radius:6px; margin-top:5px; border-left:3px solid #3498db;">
-        <span style="color:#2c3e50; font-size:0.85em; line-height:1.4;">
-            🎴 This will be the <strong>${ordinal}</strong> person to be the dealer
-        </span>
-    </div>`;
+    return `<span style="color:#2c3e50; font-size:0.8em; margin-left:10px; font-weight:normal;">
+        🎴 ${ordinal} dealer
+    </span>`;
 }
 
 function nameDropdown(id) {
