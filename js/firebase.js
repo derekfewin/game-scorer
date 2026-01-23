@@ -151,21 +151,38 @@ function listenForGameStart(gameCode, onGameStart) {
 }
 
 async function claimPlayerSlot(playerIdx) {
-    if (!state.gameCode || !state.viewerId) return false;
+    if (!state.gameCode) return false;
+    
+    // For host, use a special ID that persists
+    const claimId = state.isHost ? 'host_claim' : state.viewerId;
+    
+    if (!claimId) {
+        console.error('No claim ID available');
+        return false;
+    }
     
     const claimRef = ref(database, `games/${state.gameCode}/claims/${playerIdx}`);
     
     const result = await runTransaction(claimRef, (currentClaim) => {
         if (currentClaim === null) {
-            return state.viewerId;
+            return claimId;
+        } else if (currentClaim === claimId) {
+            // Already claimed by us, allow it
+            return claimId;
         } else {
+            // Claimed by someone else
             return;
         }
     });
 
     if (result.committed) {
         state.viewingAsPlayerIdx = playerIdx;
-        onDisconnect(claimRef).remove();
+        
+        // Only set onDisconnect for non-host claims (host stays in game)
+        if (!state.isHost) {
+            onDisconnect(claimRef).remove();
+        }
+        
         listenToGameUpdates(state.gameCode);
         return true;
     } else {

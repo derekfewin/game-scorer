@@ -341,6 +341,12 @@ function showIdentitySelection(players) {
  * Show identity selection for HOST (inline in name screen)
  */
 function showHostIdentitySelection() {
+    // Prevent multiple selection screens
+    if (document.getElementById('host-claim-ui')) {
+        console.log('Host claim UI already showing');
+        return;
+    }
+    
     console.log('🎯 Host wants to claim a player slot');
     
     const inputs = document.querySelectorAll('.name-selector');
@@ -399,12 +405,17 @@ async function hostClaimSlot(idx) {
         hostPlayerIndex = idx;
         console.log('✅ Host successfully claimed slot:', idx);
         
+        // Hide the "I'm Playing Too" button
+        const claimContainer = document.getElementById('host-claim-container');
+        if(claimContainer) claimContainer.style.display = 'none';
+        
         // Update UI to show host is claimed
         const claimUI = document.getElementById('host-claim-ui');
         if(claimUI) {
+            const playerName = getNameVal(idx + 1);
             claimUI.innerHTML = `
                 <h3 style="margin-top:0; color:#27ae60; font-size:1.1em;">✓ You're Playing!</h3>
-                <p style="color:#2c3e50; font-weight:bold;">You are: ${state.currentGame ? state.currentGame.players[idx].name : `Player ${idx+1}`}</p>
+                <p style="color:#2c3e50; font-weight:bold;">You are: ${playerName}</p>
                 <button class="btn-outline" style="background:#fff; border-color:#c0392b; color:#c0392b; margin-top:10px;" onclick="releaseHostClaim()">Release Spot</button>
             `;
         }
@@ -419,13 +430,17 @@ async function hostClaimSlot(idx) {
 function releaseHostClaim() {
     if (!window.FirebaseAPI || !state.gameCode || hostPlayerIndex === null) return;
     
-    // This will trigger the onDisconnect to clean up the claim
+    // Release the claim in Firebase
     window.FirebaseAPI.releasePlayerClaim(hostPlayerIndex);
     hostPlayerIndex = null;
     
     // Remove the claim UI
     const claimUI = document.getElementById('host-claim-ui');
     if(claimUI) claimUI.remove();
+    
+    // Re-show the "I'm Playing Too" button
+    const claimContainer = document.getElementById('host-claim-container');
+    if(claimContainer) claimContainer.style.display = 'block';
 }
 
 /**
@@ -434,6 +449,10 @@ function releaseHostClaim() {
 function cancelHostClaim() {
     const claimUI = document.getElementById('host-claim-ui');
     if(claimUI) claimUI.remove();
+    
+    // Re-enable the "I'm Playing Too" button
+    const claimContainer = document.getElementById('host-claim-container');
+    if(claimContainer) claimContainer.style.display = 'block';
 }
 
 /**
