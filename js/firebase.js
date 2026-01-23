@@ -3,7 +3,7 @@
  * Handles real-time multiplayer sync
  */
 
-console.log("🔥 FIREBASE MODULE LOADED: VALIDATION FIX v16.2");
+console.log("🔥 FIREBASE MODULE LOADED: VALIDATION FIX v17 (PERSISTENT PLACEHOLDER)");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue, remove, onDisconnect, runTransaction } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
@@ -38,16 +38,14 @@ function hostGame(gameCode) {
     
     console.log('⚡ Attempting to create game node at:', 'games/' + gameCode);
     
-    // CRITICAL FIX: Initialize with 'viewers' object to satisfy Firebase .validate rule!
-    // Rule requires: newData.hasChildren(['gameState']) || newData.hasChildren(['viewers'])
+    // Initialize with 'viewers' object to satisfy Firebase .validate rule
+    // We leave 'host_placeholder' there to prevent the node from being invalid
     set(state.firebaseRef, {
         created: Date.now(),
         status: 'lobby',
-        viewers: { 'host_placeholder': true } // Dummy value to ensure 'viewers' child exists
+        viewers: { 'host_placeholder': true }
     }).then(() => {
         console.log('✅ Game Lobby Initialized in Firebase!');
-        // Remove placeholder immediately - if this fails, it's harmless
-        remove(ref(database, 'games/' + gameCode + '/viewers/host_placeholder')).catch(() => {});
     }).catch((err) => {
         console.error('❌ LOBBY CREATION FAILED:', err);
     });
@@ -63,7 +61,7 @@ function hostGame(gameCode) {
     const viewersRef = ref(database, 'games/' + gameCode + '/viewers');
     onValue(viewersRef, (snapshot) => {
         const viewers = snapshot.val() || {};
-        // Filter out placeholder if it exists
+        // Filter out placeholder so it doesn't count as a person
         const keys = Object.keys(viewers).filter(k => k !== 'host_placeholder');
         const count = keys.length;
         
@@ -151,6 +149,7 @@ async function joinGame(gameCode) {
 
 /**
  * Listen for game start (for viewers in lobby)
+ * This is separate from listenToGameUpdates which is for active gameplay
  */
 function listenForGameStart(gameCode, onGameStart) {
     const gameStateRef = ref(database, 'games/' + gameCode + '/gameState');
