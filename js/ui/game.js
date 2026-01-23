@@ -110,33 +110,28 @@ function renderGame() {
     const area = document.getElementById('input-area');
     area.innerHTML = '';
     
-    // Old Hell trump selector
-    if (state.gameKey === 'oldhell' && game.phase === 'bid') {
-        area.innerHTML = renderTrumpSelector();
-    }
+    // VIEWER-SPECIFIC RENDERING
+    if (state.isViewer) {
+        renderViewerInfo(area, game, conf);
+    } else {
+        // HOST/SOLO RENDERING
+        // Old Hell trump selector
+        if (state.gameKey === 'oldhell' && game.phase === 'bid') {
+            area.innerHTML = renderTrumpSelector();
+        }
 
-    // Render player inputs
-    if (game.settings.useTeams) {
-        let teamCount = game.players.length / 2;
-        for(let t = 0; t < teamCount; t++) {
-            let teamBox = document.createElement('div');
-            teamBox.className = 'team-block';
-            
-            let headerHtml = `<div class="team-block-header">Team ${t+1}</div>`;
-            if (state.gameKey === 'shanghai' && game.randomMap) {
-                let p1Idx = t * 2;
-                let goalTxt = game.randomMap[p1Idx][game.round - 1];
+        // Render player inputs
+        if (game.settings.useTeams) {
+            let teamCount = game.players.length / 2;
+            for(let t = 0; t < teamCount; t++) {
+                let teamBox = document.createElement('div');
+                teamBox.className = 'team-block';
                 
-                // For viewers, show the goal directly if it's their team
-                if (state.isViewer) {
-                    let isMyTeam = (state.viewingAsPlayerIdx === p1Idx || state.viewingAsPlayerIdx === (p1Idx + 1));
-                    if (isMyTeam) {
-                        headerHtml += `<div class="team-goal-display">${goalTxt}</div>`;
-                    } else {
-                        headerHtml += `<div class="team-goal-display" style="color:#999;">Hidden</div>`;
-                    }
-                } else if (!state.isViewer) {
-                    // Host or solo game uses peek button
+                let headerHtml = `<div class="team-block-header">Team ${t+1}</div>`;
+                if (state.gameKey === 'shanghai' && game.randomMap) {
+                    let p1Idx = t * 2;
+                    let goalTxt = game.randomMap[p1Idx][game.round - 1];
+                    
                     headerHtml += `<button class="btn-peek" 
                         onmousedown="startPeek(this, '${goalTxt}')" 
                         onmouseup="endPeek(this)" 
@@ -144,21 +139,21 @@ function renderGame() {
                         ontouchend="endPeek(this)"
                         data-orig="👁️ Peek Team Goal">👁️ Peek Team Goal</button>`;
                 }
+                teamBox.innerHTML = headerHtml;
+                
+                let p1Idx = t * 2;
+                teamBox.appendChild(createPlayerRow(game.players[p1Idx], p1Idx));
+                
+                let p2Idx = t * 2 + 1;
+                teamBox.appendChild(createPlayerRow(game.players[p2Idx], p2Idx));
+                
+                area.appendChild(teamBox);
             }
-            teamBox.innerHTML = headerHtml;
-            
-            let p1Idx = t * 2;
-            teamBox.appendChild(createPlayerRow(game.players[p1Idx], p1Idx));
-            
-            let p2Idx = t * 2 + 1;
-            teamBox.appendChild(createPlayerRow(game.players[p2Idx], p2Idx));
-            
-            area.appendChild(teamBox);
+        } else {
+            game.players.forEach((p, i) => {
+                area.appendChild(createPlayerRow(p, i));
+            });
         }
-    } else {
-        game.players.forEach((p, i) => {
-            area.appendChild(createPlayerRow(p, i));
-        });
     }
     
     document.getElementById('action-btn').innerText = 
@@ -168,6 +163,73 @@ function renderGame() {
     document.getElementById('undo-btn').style.display = (hasHistory && !state.isViewer) ? 'block' : 'none';
     
     renderTable();
+}
+
+function renderViewerInfo(area, game, conf) {
+    // Show current dealer/starter info
+    let dealerIdx = game.getDealerIdx();
+    if (conf.hasDealer && dealerIdx >= 0) {
+        let dealerName = game.players[dealerIdx].name;
+        let label = (state.gameKey === 'mexicantrain') ? "Current Starter" : "Current Dealer";
+        
+        let dealerBox = document.createElement('div');
+        dealerBox.style.cssText = 'background:#e8f4fd; padding:20px; border-radius:10px; margin-bottom:20px; border:2px solid #3498db; text-align:center;';
+        dealerBox.innerHTML = `
+            <div style="font-size:0.9em; color:#666; margin-bottom:5px;">${label}</div>
+            <div style="font-size:1.8em; font-weight:bold; color:#2c3e50;">🎴 ${dealerName}</div>
+        `;
+        area.appendChild(dealerBox);
+    }
+    
+    // Shanghai randomized goals - show viewer's goal prominently
+    if (state.gameKey === 'shanghai' && game.randomMap) {
+        let goalBox = document.createElement('div');
+        goalBox.style.cssText = 'background:#fff3cd; padding:20px; border-radius:10px; margin-bottom:20px; border:2px solid #f39c12; text-align:center;';
+        
+        if (game.settings.useTeams) {
+            // Team game - show team goal
+            let myTeamIdx = Math.floor(state.viewingAsPlayerIdx / 2);
+            let p1Idx = myTeamIdx * 2;
+            let goalTxt = game.randomMap[p1Idx][game.round - 1];
+            
+            goalBox.innerHTML = `
+                <div style="font-size:0.9em; color:#856404; margin-bottom:8px; font-weight:600;">Your Team's Goal</div>
+                <div style="font-size:2em; font-weight:bold; color:#2c3e50; line-height:1.3;">${goalTxt}</div>
+            `;
+        } else {
+            // Individual game - show personal goal
+            let goalTxt = game.randomMap[state.viewingAsPlayerIdx][game.round - 1];
+            
+            goalBox.innerHTML = `
+                <div style="font-size:0.9em; color:#856404; margin-bottom:8px; font-weight:600;">Your Goal</div>
+                <div style="font-size:2em; font-weight:bold; color:#2c3e50; line-height:1.3;">${goalTxt}</div>
+            `;
+        }
+        
+        area.appendChild(goalBox);
+    }
+    
+    // Old Hell - show trump if in scoring phase
+    if (state.gameKey === 'oldhell' && game.currentTrump) {
+        let trumpBox = document.createElement('div');
+        trumpBox.style.cssText = 'background:#f4ecf7; padding:20px; border-radius:10px; margin-bottom:20px; border:2px solid #8e44ad; text-align:center;';
+        
+        let color = (game.currentTrump === 'H' || game.currentTrump === 'D') ? 'red' : 'black';
+        trumpBox.innerHTML = `
+            <div style="font-size:0.9em; color:#666; margin-bottom:5px;">Trump Suit</div>
+            <div style="font-size:3em; color:${color};">${getSuitIcon(game.currentTrump)}</div>
+        `;
+        area.appendChild(trumpBox);
+    }
+    
+    // Show waiting message
+    let waitBox = document.createElement('div');
+    waitBox.style.cssText = 'background:#f8f9fa; padding:30px 20px; border-radius:10px; text-align:center; color:#666;';
+    waitBox.innerHTML = `
+        <div style="font-size:3em; margin-bottom:10px;">⏳</div>
+        <div style="font-size:1.1em; font-weight:600;">Waiting for host to submit scores...</div>
+    `;
+    area.appendChild(waitBox);
 }
 
 function createPlayerRow(p, i) {
