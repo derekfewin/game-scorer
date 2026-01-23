@@ -3,11 +3,11 @@
  * Handles real-time multiplayer sync
  */
 
-console.log("🔥 FIREBASE MODULE LOADED: AUTH FIX v14");
+console.log("🔥 FIREBASE MODULE LOADED: AUTH FIX v16 (State Listener)");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue, remove, onDisconnect, runTransaction } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCIJLFgLAmY3xmjWuAn0k6agkPqpwaerfY",
@@ -24,11 +24,20 @@ const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 const auth = getAuth(app);
 
-// Authenticate anonymously immediately
-signInAnonymously(auth).then(() => {
-    console.log("✅ Signed in anonymously");
-}).catch((error) => {
-    console.error("❌ Authentication failed:", error);
+// Global auth state
+let isAuthReady = false;
+
+// Monitor Auth State
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        console.log("✅ User is signed in:", user.uid);
+        isAuthReady = true;
+    } else {
+        console.log("⚠️ User signed out, attempting anonymous sign-in...");
+        signInAnonymously(auth).catch((error) => {
+            console.error("❌ Auth Error:", error.code, error.message);
+        });
+    }
 });
 
 function generateGameCode() {
@@ -38,6 +47,14 @@ function generateGameCode() {
 function hostGame(gameCode) {
     console.log(`⚡ hostGame called for code: ${gameCode}`);
     
+    // Wait for auth if not ready (simple check)
+    if (!auth.currentUser) {
+        console.log("⏳ Waiting for auth before hosting...");
+        // Retry in 500ms if not ready (basic polling for simplicity in this context)
+        setTimeout(() => hostGame(gameCode), 500);
+        return;
+    }
+
     state.gameCode = gameCode;
     state.isHost = true;
     state.isViewer = false;
@@ -45,12 +62,10 @@ function hostGame(gameCode) {
     
     console.log('⚡ Attempting to create game node at:', 'games/' + gameCode);
     
-    // Ensure we are auth'd before writing
-    // If signInAnonymously is still pending, this might race, 
-    // but usually it's fast enough or queued.
     set(state.firebaseRef, {
         created: Date.now(),
-        status: 'lobby'
+        status: 'lobby',
+        host: auth.currentUser.uid
     }).then(() => {
         console.log('✅ Game Lobby Initialized in Firebase!');
     }).catch((err) => {
@@ -67,7 +82,6 @@ function hostGame(gameCode) {
     onValue(viewersRef, (snapshot) => {
         const viewers = snapshot.val() || {};
         const count = Object.keys(viewers).length;
-        console.log(`👀 Viewer count updated: ${count}`);
         
         if (!state.connectedViewers || Object.keys(state.connectedViewers).length === 0) {
             const setupCountEl = document.getElementById('viewer-count');
@@ -103,6 +117,15 @@ function isPlayerConnected(playerIdx) {
 
 async function joinGame(gameCode) {
     return new Promise((resolve, reject) => {
+        // Ensure auth before joining
+        if (!auth.currentUser) {
+             console.warn("Auth not ready, retrying join...");
+             signInAnonymously(auth).then(() => {
+                 joinGame(gameCode).then(resolve).catch(reject);
+             });
+             return;
+        }
+
         const gameRef = ref(database, 'games/' + gameCode);
         
         get(gameRef).then((snapshot) => {
@@ -114,7 +137,7 @@ async function joinGame(gameCode) {
             
             const data = snapshot.val();
             
-            const viewerId = 'viewer_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            const viewerId = auth.currentUser.uid; // Use Auth UID for stability
             state.viewerId = viewerId;
             state.gameCode = gameCode;
             state.isHost = false;
@@ -261,6 +284,25 @@ function cleanupFirebase() {
     state.viewingAsPlayerIdx = null;
     state.viewerId = null;
     state.connectedViewers = null;
+}
+
+// Helper to find name from index (Legacy helper, mostly handled by game object now)
+function resolveNameFromIndex(idx) {
+    if (state.currentGame && state.currentGame.players && state.currentGame.players[idx]) {
+        return state.currentGame.players[idx].name;
+    }
+    // Fallback for setup screen if needed
+    const inputs = document.querySelectorAll('.name-selector');
+    if(inputs.length > idx) {
+        let val = inputs[idx].value;
+        if(val === 'CUSTOM') {
+             let customId = inputs[idx].id.replace('n-', 'c-');
+             let customInput = document.getElementById(customId);
+             if(customInput) return customInput.value;
+        }
+        return val;
+    }
+    return `Player ${idx+1}`;
 }
 
 window.FirebaseAPI = {
