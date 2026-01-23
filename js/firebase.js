@@ -3,7 +3,7 @@
  * Handles real-time multiplayer sync
  */
 
-console.log("🔥 FIREBASE MODULE LOADED: VALIDATION FIX v16");
+console.log("🔥 FIREBASE MODULE LOADED: VALIDATION FIX v16.2");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue, remove, onDisconnect, runTransaction } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
@@ -46,8 +46,8 @@ function hostGame(gameCode) {
         viewers: { 'host_placeholder': true } // Dummy value to ensure 'viewers' child exists
     }).then(() => {
         console.log('✅ Game Lobby Initialized in Firebase!');
-        // Remove placeholder immediately
-        remove(ref(database, 'games/' + gameCode + '/viewers/host_placeholder'));
+        // Remove placeholder immediately - if this fails, it's harmless
+        remove(ref(database, 'games/' + gameCode + '/viewers/host_placeholder')).catch(() => {});
     }).catch((err) => {
         console.error('❌ LOBBY CREATION FAILED:', err);
     });
