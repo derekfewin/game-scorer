@@ -1,33 +1,66 @@
 /**
  * Name Entry Screen
- * Player/team name configuration
+ * Player/team name configuration with dealer order notes
  */
 
 function showNames() {
     state.gameKey = document.getElementById('game-select').value;
     const count = parseInt(document.getElementById('player-count').value);
-    const useTeams = document.getElementById('use-teams').checked;
+    const useTeams = isTeamsActive();
+    const randomize = isRandomizeActive();
     
     document.getElementById('setup-screen').style.display = 'none';
     document.getElementById('name-screen').style.display = 'block';
     
     const container = document.getElementById('name-inputs');
     container.innerHTML = '';
+    
+    // Add dealer order info box
+    const infoBox = document.createElement('div');
+    infoBox.style.cssText = 'background:#fff3cd; padding:12px; border-radius:8px; margin-bottom:20px; border:1px solid #ffc107; text-align:center;';
+    infoBox.innerHTML = `<span style="color:#856404; font-size:0.9em; font-weight:600;">ℹ️ Player order determines dealer rotation</span>`;
+    container.appendChild(infoBox);
+    
+    // Add randomize info for Shanghai
+    if (state.gameKey === 'shanghai' && randomize) {
+        const randomBox = document.createElement('div');
+        randomBox.style.cssText = 'background:#e8f4fd; padding:12px; border-radius:8px; margin-bottom:20px; border:1px solid #3498db; text-align:center;';
+        randomBox.innerHTML = `<span style="color:#2c3e50; font-size:0.9em; font-weight:600;">🔀 Goals are randomized - viewers will see their own goals automatically</span>`;
+        container.appendChild(randomBox);
+    }
+    
     const numUnits = useTeams ? count/2 : count;
     
     for(let i = 1; i <= numUnits; i++) {
         let html = `<div class="setup-group">`;
         if (useTeams) {
-            html += `<span class="team-label">Team ${i}</span>
-                     <label>Member 1</label>${nameDropdown(i+'-a')}
-                     <label>Member 2</label>${nameDropdown(i+'-b')}`;
+            html += `<span class="team-label">Team ${i}</span>`;
+            
+            // Player 1 of team
+            html += `<label>Player 1</label>${nameDropdown(i+'-a')}`;
+            html += getDealerNote(i, true);
+            
+            // Player 2 of team
+            html += `<label style="margin-top:10px;">Player 2</label>${nameDropdown(i+'-b')}`;
         } else {
             html += `<label>Player ${i}</label>${nameDropdown(i)}`;
+            html += getDealerNote(i, false);
         }
         html += `</div>`;
         container.innerHTML += html;
     }
     updateNameDropdowns();
+}
+
+function getDealerNote(position, isTeam) {
+    const ordinals = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth'];
+    const ordinal = ordinals[position - 1] || `#${position}`;
+    
+    return `<div style="background:#e8f4fd; padding:8px; border-radius:6px; margin-top:5px; border-left:3px solid #3498db;">
+        <span style="color:#2c3e50; font-size:0.85em; line-height:1.4;">
+            🎴 This will be the <strong>${ordinal}</strong> person to be the dealer
+        </span>
+    </div>`;
 }
 
 function nameDropdown(id) {
@@ -80,8 +113,8 @@ function getNameVal(id) {
 function startGame() {
     const conf = GAMES[state.gameKey];
     const count = parseInt(document.getElementById('player-count').value);
-    const useTeams = document.getElementById('use-teams').checked;
-    const randomize = document.getElementById('randomize-goals').checked;
+    const useTeams = isTeamsActive();
+    const randomize = isRandomizeActive();
     const target = parseInt(document.getElementById('target-score').value) || conf.target || 0;
     
     let players = [];

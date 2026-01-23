@@ -75,19 +75,32 @@
         <label>Select Game</label>
         <select id="game-select" onchange="updateSetupUI()"></select>
     </div>
+    
     <div class="setup-group">
         <label>Number of Players</label>
-        <input type="number" id="player-count" inputmode="numeric" value="4" onfocus="this.select()" oninput="updateSetupUI()">
+        <input type="hidden" id="player-count" value="4">
+        <div class="player-count-grid">
+            <button class="pc-btn" id="pc-2" onclick="setPlayerCount(2)">2</button>
+            <button class="pc-btn" id="pc-3" onclick="setPlayerCount(3)">3</button>
+            <button class="pc-btn active" id="pc-4" onclick="setPlayerCount(4)">4</button>
+            <button class="pc-btn" id="pc-5" onclick="setPlayerCount(5)">5</button>
+            <button class="pc-btn" id="pc-6" onclick="setPlayerCount(6)">6</button>
+            <button class="pc-btn" id="pc-7" onclick="setPlayerCount(7)">7</button>
+            <button class="pc-btn" id="pc-8" onclick="setPlayerCount(8)">8</button>
+        </div>
     </div>
+    
     <div id="target-option" class="setup-group" style="display:none;">
         <label>Target Score</label>
         <input type="number" id="target-score" inputmode="numeric">
     </div>
+    
     <div id="team-option" class="setup-group" style="display:none;">
-        <label><input type="checkbox" id="use-teams"> Play in Teams?</label>
+        <button id="use-teams" class="toggle-btn" onclick="toggleTeams()">Play in Teams?</button>
     </div>
+    
     <div id="random-option" class="setup-group" style="display:none;">
-        <label><input type="checkbox" id="randomize-goals"> 🔀 Randomize Goals?</label>
+        <button id="randomize-goals" class="toggle-btn" onclick="toggleRandomize()">🔀 Randomize Goals?</button>
     </div>
     
     <!-- MULTIPLAYER OPTIONS -->
@@ -116,6 +129,13 @@
     </div>
     
     <div id="name-inputs"></div>
+    
+    <!-- Host Self-Assignment Button -->
+    <div id="host-claim-container" style="display:none; margin-top:15px;">
+        <button class="btn-outline" style="background:#e8f4fd; border-color:#3498db; color:#2980b9;" 
+                onclick="showHostIdentitySelection()">🎮 I'm Playing Too</button>
+    </div>
+    
     <button class="btn-game-action" onclick="startGame()">Start Game</button>
     <button class="btn-outline" onclick="cancelMultiplayer()">Back</button>
 </div>

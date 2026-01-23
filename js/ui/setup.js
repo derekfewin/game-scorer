@@ -1,7 +1,7 @@
 /**
  * Setup Screen
  * Initial game configuration UI
- * DEBUG VERSION with extensive logging
+ * Updated with player count buttons, team/randomize toggles, and host self-assignment
  */
 
 function initApp() {
@@ -21,7 +21,7 @@ function initApp() {
 
 function updateSetupUI() {
     const key = document.getElementById('game-select').value;
-    let count = parseInt(document.getElementById('player-count').value) || 0;
+    let count = parseInt(document.getElementById('player-count').value) || 4;
     const conf = GAMES[key];
     
     if(conf.maxPlayers && count > conf.maxPlayers) {
@@ -30,24 +30,23 @@ function updateSetupUI() {
     }
     
     const teamDiv = document.getElementById('team-option');
-    const teamLabel = teamDiv.querySelector('label');
-    const teamCheck = document.getElementById('use-teams');
+    const teamBtn = document.getElementById('use-teams');
 
     if (conf.hasTeams) {
         teamDiv.style.display = 'block';
         if (count % 2 !== 0) {
-            teamCheck.disabled = true;
-            teamCheck.checked = false;
-            teamLabel.style.color = '#bbb';
-            teamLabel.childNodes[1].textContent = " Teams Unavailable (Need Even #)";
+            teamBtn.disabled = true;
+            teamBtn.classList.remove('active');
+            teamBtn.innerText = "⚠️ Teams Unavailable (Need Even #)";
+            teamBtn.style.opacity = '0.5';
         } else {
-            teamCheck.disabled = false;
-            teamLabel.style.color = 'var(--primary)';
-            teamLabel.childNodes[1].textContent = " Play in Teams?";
+            teamBtn.disabled = false;
+            teamBtn.style.opacity = '1';
+            updateTeamButtonText();
         }
     } else {
         teamDiv.style.display = 'none';
-        teamCheck.checked = false;
+        teamBtn.classList.remove('active');
     }
 
     document.getElementById('random-option').style.display = 
@@ -60,6 +59,62 @@ function updateSetupUI() {
     } else {
         targetDiv.style.display = 'none';
     }
+}
+
+function setPlayerCount(num) {
+    document.getElementById('player-count').value = num;
+    updatePlayerCountButtons();
+    updateSetupUI();
+}
+
+function updatePlayerCountButtons() {
+    const count = parseInt(document.getElementById('player-count').value) || 4;
+    for(let i = 2; i <= 8; i++) {
+        const btn = document.getElementById(`pc-${i}`);
+        if(btn) {
+            if(i === count) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        }
+    }
+}
+
+function toggleTeams() {
+    const btn = document.getElementById('use-teams');
+    if(btn.disabled) return;
+    
+    btn.classList.toggle('active');
+    updateTeamButtonText();
+}
+
+function updateTeamButtonText() {
+    const btn = document.getElementById('use-teams');
+    if(btn.classList.contains('active')) {
+        btn.innerText = "✓ Playing in Teams";
+    } else {
+        btn.innerText = "Play in Teams?";
+    }
+}
+
+function toggleRandomize() {
+    const btn = document.getElementById('randomize-goals');
+    btn.classList.toggle('active');
+    
+    if(btn.classList.contains('active')) {
+        btn.innerText = "✓ Goals Randomized";
+    } else {
+        btn.innerText = "🔀 Randomize Goals?";
+    }
+}
+
+function isTeamsActive() {
+    return document.getElementById('use-teams').classList.contains('active');
+}
+
+function isRandomizeActive() {
+    return document.getElementById('randomize-goals').classList.contains('active');
 }
 
 function showJoinPrompt() {
@@ -75,6 +130,7 @@ function closeJoinModal() {
 // Global variables for lobby management
 let lobbyUnsubscribe = null;
 let claimUnsub = null;
+let hostPlayerIndex = null; // Track which slot the host claimed
 
 /**
  * JOIN FLOW with DEBUG logging
@@ -219,7 +275,7 @@ function cancelLobbyWait() {
 }
 
 /**
- * Show identity selection screen
+ * Show identity selection screen (for regular viewers)
  */
 function showIdentitySelection(players) {
     console.log('👤 showIdentitySelection() called with', players.length, 'players');
@@ -282,7 +338,106 @@ function showIdentitySelection(players) {
 }
 
 /**
- * Select identity and claim slot
+ * Show identity selection for HOST (inline in name screen)
+ */
+function showHostIdentitySelection() {
+    console.log('🎯 Host wants to claim a player slot');
+    
+    const inputs = document.querySelectorAll('.name-selector');
+    const players = [];
+    
+    inputs.forEach((inp, i) => {
+        let name;
+        const useTeams = isTeamsActive();
+        
+        if(useTeams) {
+            let teamNum = Math.ceil((i+1) / 2);
+            let suffix = ((i+1) % 2 !== 0) ? 'a' : 'b';
+            name = getNameVal(`${teamNum}-${suffix}`);
+        } else {
+            name = getNameVal(i+1);
+        }
+        players.push(name);
+    });
+    
+    // Create inline selection UI
+    const container = document.getElementById('name-inputs');
+    const hostSelectDiv = document.createElement('div');
+    hostSelectDiv.id = 'host-claim-ui';
+    hostSelectDiv.style.cssText = 'background:#e8f4fd; padding:15px; border-radius:10px; margin-top:20px; border:2px solid #3498db;';
+    
+    let html = `
+        <h3 style="margin-top:0; color:#2c3e50; font-size:1.1em;">🎮 Claim Your Spot</h3>
+        <p style="color:#666; font-size:0.9em; margin-bottom:15px;">Which player are you?</p>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
+    `;
+    
+    players.forEach((name, i) => {
+        html += `<button class="btn-outline" style="margin:0;" onclick="hostClaimSlot(${i})">${name}</button>`;
+    });
+    
+    html += `</div><button class="btn-outline" style="background:#f9f9f9; border-color:#999; color:#666; margin-top:0;" onclick="cancelHostClaim()">Cancel</button>`;
+    
+    hostSelectDiv.innerHTML = html;
+    container.appendChild(hostSelectDiv);
+}
+
+/**
+ * Host claims a player slot
+ */
+async function hostClaimSlot(idx) {
+    console.log('🎯 Host claiming slot:', idx);
+    
+    if (!window.FirebaseAPI || !state.gameCode) {
+        showAlert('Error: Game not initialized');
+        return;
+    }
+    
+    const success = await window.FirebaseAPI.claimPlayerSlot(idx);
+    
+    if (success) {
+        hostPlayerIndex = idx;
+        console.log('✅ Host successfully claimed slot:', idx);
+        
+        // Update UI to show host is claimed
+        const claimUI = document.getElementById('host-claim-ui');
+        if(claimUI) {
+            claimUI.innerHTML = `
+                <h3 style="margin-top:0; color:#27ae60; font-size:1.1em;">✓ You're Playing!</h3>
+                <p style="color:#2c3e50; font-weight:bold;">You are: ${state.currentGame ? state.currentGame.players[idx].name : `Player ${idx+1}`}</p>
+                <button class="btn-outline" style="background:#fff; border-color:#c0392b; color:#c0392b; margin-top:10px;" onclick="releaseHostClaim()">Release Spot</button>
+            `;
+        }
+    } else {
+        showAlert('That spot was just taken by a viewer!');
+    }
+}
+
+/**
+ * Host releases their claimed slot
+ */
+function releaseHostClaim() {
+    if (!window.FirebaseAPI || !state.gameCode || hostPlayerIndex === null) return;
+    
+    // This will trigger the onDisconnect to clean up the claim
+    window.FirebaseAPI.releasePlayerClaim(hostPlayerIndex);
+    hostPlayerIndex = null;
+    
+    // Remove the claim UI
+    const claimUI = document.getElementById('host-claim-ui');
+    if(claimUI) claimUI.remove();
+}
+
+/**
+ * Cancel host claim UI
+ */
+function cancelHostClaim() {
+    const claimUI = document.getElementById('host-claim-ui');
+    if(claimUI) claimUI.remove();
+}
+
+/**
+ * Select identity and claim slot (for regular viewers)
  */
 async function selectIdentity(idx, name) {
     console.log(`🎯 Attempting to claim slot ${idx} (${name})`);
@@ -361,6 +516,7 @@ function cancelMultiplayer() {
         window.FirebaseAPI.cleanupFirebase();
     }
     
+    hostPlayerIndex = null;
     document.getElementById('game-code-display').style.display = 'none';
     document.getElementById('name-screen').style.display = 'none';
     document.getElementById('setup-screen').style.display = 'block';
@@ -388,6 +544,7 @@ function softResetApp() {
     state.isHost = false;
     state.isViewer = false;
     state.gameCode = null;
+    hostPlayerIndex = null;
     
     document.getElementById('game-screen').style.display = 'none';
     document.getElementById('setup-screen').style.display = 'block';

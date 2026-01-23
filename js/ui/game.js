@@ -195,17 +195,29 @@ function createPlayerRow(p, i) {
     if (state.gameKey === 'shanghai' && game.randomMap && !game.settings.useTeams) {
         let goalTxt = game.randomMap[i][game.round-1];
         
-        if (state.isViewer) {
+        // Viewers see their own goal directly, everyone else uses peek
+        if (state.isViewer && state.viewingAsPlayerIdx === i) {
             sub = `<span class="p-sub" style="color:#2980b9; font-weight:bold;">
                     Goal: ${goalTxt}
                   </span>`;
-        } else {
+        } else if (state.isViewer) {
+            // Other players' goals are hidden for viewers
+            sub = `<span class="p-sub" style="color:#999;">
+                    Goal: Hidden
+                  </span>`;
+        } else if (state.isHost) {
+            // Host uses peek button
             sub = `<button class="btn-peek" 
                     onmousedown="startPeek(this, '${goalTxt}')" 
                     onmouseup="endPeek(this)" 
                     ontouchstart="startPeek(this, '${goalTxt}')" 
                     ontouchend="endPeek(this)"
                     data-orig="👁️ Hold to Peek">👁️ Hold to Peek</button>`;
+        } else {
+            // Solo game - show directly
+            sub = `<span class="p-sub" style="color:#2980b9; font-weight:bold;">
+                    Goal: ${goalTxt}
+                  </span>`;
         }
     } else if (state.gameKey === 'spades' && game.phase === 'score') {
         let bidTxt = (p.isBlindNil) ? "Blind Nil" : (p.bid === 0 ? "Nil" : p.bid);

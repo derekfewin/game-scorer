@@ -3,7 +3,7 @@
  * Handles real-time multiplayer sync
  */
 
-console.log("🔥 FIREBASE MODULE LOADED: VALIDATION FIX v17 (PERSISTENT PLACEHOLDER)");
+console.log("🔥 FIREBASE MODULE LOADED: HOST CLAIM UPDATE v18");
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue, remove, onDisconnect, runTransaction } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
@@ -22,8 +22,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
-// NOTE: Authentication removed because rules are public, but strict validation was blocking writes.
-
 function generateGameCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
@@ -38,14 +36,16 @@ function hostGame(gameCode) {
     
     console.log('⚡ Attempting to create game node at:', 'games/' + gameCode);
     
-    // Initialize with 'viewers' object to satisfy Firebase .validate rule
-    // We leave 'host_placeholder' there to prevent the node from being invalid
     set(state.firebaseRef, {
         created: Date.now(),
         status: 'lobby',
         viewers: { 'host_placeholder': true }
     }).then(() => {
         console.log('✅ Game Lobby Initialized in Firebase!');
+        
+        // Show host claim button
+        const claimContainer = document.getElementById('host-claim-container');
+        if(claimContainer) claimContainer.style.display = 'block';
     }).catch((err) => {
         console.error('❌ LOBBY CREATION FAILED:', err);
     });
@@ -61,13 +61,11 @@ function hostGame(gameCode) {
     const viewersRef = ref(database, 'games/' + gameCode + '/viewers');
     onValue(viewersRef, (snapshot) => {
         const viewers = snapshot.val() || {};
-        // Filter out placeholder so it doesn't count as a person
         const keys = Object.keys(viewers).filter(k => k !== 'host_placeholder');
         const count = keys.length;
         
         console.log(`👀 Viewer count updated: ${count}`);
         
-        // Update lobby count (before game starts)
         if (!state.connectedViewers || Object.keys(state.connectedViewers).length === 0) {
             const setupCountEl = document.getElementById('viewer-count');
             if (setupCountEl) setupCountEl.innerText = count;
@@ -80,15 +78,12 @@ function updateHostUIWithConnectedPlayers(claims) {
     const count = Object.keys(claims).length;
     state.viewerCount = count;
     
-    // Update game header
     const headerCountEl = document.getElementById('header-viewer-count');
     if (headerCountEl) headerCountEl.innerText = count;
 
-    // Update lobby count
     const setupCountEl = document.getElementById('viewer-count');
     if (setupCountEl && count > 0) setupCountEl.innerText = count;
     
-    // Trigger re-render if game active
     if (state.currentGame && typeof renderGame === 'function') {
         renderGame();
     }
@@ -103,11 +98,6 @@ function isPlayerConnected(playerIdx) {
     return state.connectedViewers && state.connectedViewers[playerIdx] !== undefined;
 }
 
-/**
- * Join an existing game as a viewer
- * Returns 'LOBBY' if waiting for host to start
- * Returns players array if game has started
- */
 async function joinGame(gameCode) {
     return new Promise((resolve, reject) => {
         const gameRef = ref(database, 'games/' + gameCode);
@@ -121,7 +111,6 @@ async function joinGame(gameCode) {
             
             const data = snapshot.val();
             
-            // Register as viewer IMMEDIATELY
             const viewerId = 'viewer_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
             state.viewerId = viewerId;
             state.gameCode = gameCode;
@@ -135,7 +124,6 @@ async function joinGame(gameCode) {
             
             console.log('✅ Viewer registered:', viewerId);
             
-            // Check if game has started
             if (data.gameState && data.gameState.classData && Array.isArray(data.gameState.classData.players)) {
                 console.log('🎮 Game already started');
                 resolve(data.gameState.classData.players);
@@ -147,10 +135,6 @@ async function joinGame(gameCode) {
     });
 }
 
-/**
- * Listen for game start (for viewers in lobby)
- * This is separate from listenToGameUpdates which is for active gameplay
- */
 function listenForGameStart(gameCode, onGameStart) {
     const gameStateRef = ref(database, 'games/' + gameCode + '/gameState');
     
@@ -166,9 +150,6 @@ function listenForGameStart(gameCode, onGameStart) {
     return unsubscribe;
 }
 
-/**
- * Claim a player slot
- */
 async function claimPlayerSlot(playerIdx) {
     if (!state.gameCode || !state.viewerId) return false;
     
@@ -178,7 +159,7 @@ async function claimPlayerSlot(playerIdx) {
         if (currentClaim === null) {
             return state.viewerId;
         } else {
-            return; // Already taken
+            return;
         }
     });
 
@@ -192,9 +173,17 @@ async function claimPlayerSlot(playerIdx) {
     }
 }
 
-/**
- * Listen for claim changes
- */
+function releasePlayerClaim(playerIdx) {
+    if (!state.gameCode) return;
+    
+    const claimRef = ref(database, `games/${state.gameCode}/claims/${playerIdx}`);
+    remove(claimRef);
+    
+    if (state.viewingAsPlayerIdx === playerIdx) {
+        state.viewingAsPlayerIdx = null;
+    }
+}
+
 function listenToClaims(callback) {
     const claimsRef = ref(database, `games/${state.gameCode}/claims`);
     return onValue(claimsRef, (snapshot) => {
@@ -282,12 +271,10 @@ function cleanupFirebase() {
     state.connectedViewers = null;
 }
 
-// Helper to find name from index (Legacy helper, mostly handled by game object now)
 function resolveNameFromIndex(idx) {
     if (state.currentGame && state.currentGame.players && state.currentGame.players[idx]) {
         return state.currentGame.players[idx].name;
     }
-    // Fallback for setup screen if needed
     const inputs = document.querySelectorAll('.name-selector');
     if(inputs.length > idx) {
         let val = inputs[idx].value;
@@ -307,6 +294,7 @@ window.FirebaseAPI = {
     joinGame,
     listenForGameStart,
     claimPlayerSlot,
+    releasePlayerClaim,
     listenToClaims,
     listenToGameUpdates,
     syncToFirebase,
