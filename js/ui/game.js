@@ -40,6 +40,15 @@ function renderGame() {
         roundLabel = headerPrefix ? `${headerPrefix} • ${baseLabel}` : baseLabel;
     }
     
+    // Add target score for games that use it
+    if (conf.type === 'target_score' || (state.gameKey === 'hearts' && game.settings.targetScore)) {
+        const targetScore = game.settings.targetScore || conf.target;
+        if (targetScore) {
+            const targetLabel = ` • Target: ${targetScore}`;
+            roundLabel += targetLabel;
+        }
+    }
+    
     let hero = game.getHeroContent();
     
     // Game Over State
@@ -108,7 +117,15 @@ function renderGame() {
     }
     
     document.getElementById('round-label').innerHTML = roundLabel;
-    document.getElementById('hero-content').innerHTML = hero;
+    
+    // Only show hero content for games that need it (not simple score tracking games)
+    const heroArea = document.getElementById('hero-content');
+    if (state.gameKey === 'rummikub' || state.gameKey === 'triominos' || state.gameKey === 'qwirkle') {
+        heroArea.style.display = 'none';
+    } else {
+        heroArea.style.display = 'block';
+        heroArea.innerHTML = hero;
+    }
     
     const area = document.getElementById('input-area');
     area.innerHTML = '';

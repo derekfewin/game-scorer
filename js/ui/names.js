@@ -12,6 +12,12 @@ function showNames() {
     document.getElementById('setup-screen').style.display = 'none';
     document.getElementById('name-screen').style.display = 'block';
     
+    // Hide host claim button for solo games (only show for multiplayer hosts)
+    const claimContainer = document.getElementById('host-claim-container');
+    if (claimContainer && !state.isHost) {
+        claimContainer.style.display = 'none';
+    }
+    
     const container = document.getElementById('name-inputs');
     container.innerHTML = '';
     

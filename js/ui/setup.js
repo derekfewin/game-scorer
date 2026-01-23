@@ -533,6 +533,7 @@ function showNamesAsHost() {
     
     document.getElementById('game-code-text').innerText = code;
     document.getElementById('game-code-display').style.display = 'block';
+    document.getElementById('host-claim-container').style.display = 'block';
     
     showNames();
 }
