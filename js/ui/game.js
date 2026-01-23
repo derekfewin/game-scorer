@@ -19,19 +19,10 @@ function renderGame() {
     let headerPrefix = "";
     
     if (state.isHost) {
-        // HOST: Show Code and Count
+        // Host sees Code and Count
         headerPrefix = `🎮 HOST: ${state.gameCode} (<span id="header-viewer-count">${vCount}</span> 👤)`;
-        
-        // NEW: Host Identity Selection
-        if (state.viewingAsPlayerIdx === null) {
-            headerPrefix += ` <button class="btn-sm" onclick="showHostIdentityPicker()">🙋 I'm Playing</button>`;
-        } else {
-            let myName = game.players[state.viewingAsPlayerIdx].name;
-            headerPrefix += ` (Me: ${myName})`;
-        }
-        
     } else if (state.isViewer) {
-        // VIEWER: Show Identity
+        // Viewer sees their own identity
         let myName = "Spectator";
         if (state.viewingAsPlayerIdx !== null && game.players[state.viewingAsPlayerIdx]) {
             myName = game.players[state.viewingAsPlayerIdx].name;
@@ -113,9 +104,7 @@ function renderGame() {
         document.getElementById('finish-btn').innerText = "Finish & Save";
     }
     
-    // CRITICAL UPDATE: Changed innerText to innerHTML so our <span> and <button> tags work
     document.getElementById('round-label').innerHTML = roundLabel;
-    
     document.getElementById('hero-content').innerHTML = hero;
     
     const area = document.getElementById('input-area');
@@ -169,62 +158,6 @@ function renderGame() {
     renderTable();
 }
 
-// NEW: Host Identity Picker Logic
-function showHostIdentityPicker() {
-    if (!state.currentGame) return;
-    
-    const players = state.currentGame.players;
-    const modalBox = document.querySelector('#join-modal .modal-box');
-    
-    modalBox.innerHTML = `
-        <h3 style="margin-top:0">Which player are you?</h3>
-        <div id="host-player-list" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; max-height:300px; overflow-y:auto; margin-bottom:15px;">
-        </div>
-        <button class="modal-btn cancel" onclick="closeJoinModal()">Cancel</button>
-    `;
-    
-    const list = document.getElementById('host-player-list');
-    
-    players.forEach((p, i) => {
-        let btn = document.createElement('button');
-        btn.className = 'btn-outline';
-        btn.style.width = '100%';
-        btn.style.padding = '10px';
-        btn.innerText = p.name;
-        
-        // Check if taken
-        if (window.FirebaseAPI && window.FirebaseAPI.isPlayerConnected(i)) {
-             btn.disabled = true;
-             btn.innerText += " (Taken)";
-             btn.style.opacity = "0.5";
-        } else {
-             btn.onclick = () => confirmHostIdentity(i);
-        }
-        
-        list.appendChild(btn);
-    });
-    
-    document.getElementById('join-modal').style.display = 'flex';
-}
-
-async function confirmHostIdentity(idx) {
-    if (window.FirebaseAPI) {
-        // Need a viewerId for the host if not already set
-        if (!state.viewerId) {
-            state.viewerId = 'host_' + Date.now();
-        }
-        
-        const success = await window.FirebaseAPI.claimPlayerSlot(idx);
-        if (success) {
-            closeJoinModal();
-            renderGame();
-        } else {
-            showAlert("That slot was just taken!");
-            showHostIdentityPicker(); // Refresh list
-        }
-    }
-}
-
 function createPlayerRow(p, i) {
     const game = state.currentGame;
     const conf = GAMES[state.gameKey];
@@ -263,14 +196,9 @@ function createPlayerRow(p, i) {
         let goalTxt = game.randomMap[i][game.round-1];
         
         if (state.isViewer) {
-            // Viewers see their own goal clearly, others maybe hidden or small
-            // If I am this player, show it bold
-            if (state.viewingAsPlayerIdx === i) {
-                sub = `<span class="p-sub" style="color:#2980b9; font-weight:bold;">Goal: ${goalTxt}</span>`;
-            } else {
-                // Should we show others goals? Usually yes in open games.
-                sub = `<span class="p-sub" style="color:#999;">Goal: ${goalTxt}</span>`;
-            }
+            sub = `<span class="p-sub" style="color:#2980b9; font-weight:bold;">
+                    Goal: ${goalTxt}
+                  </span>`;
         } else {
             sub = `<button class="btn-peek" 
                     onmousedown="startPeek(this, '${goalTxt}')" 
