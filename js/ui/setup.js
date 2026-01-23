@@ -29,6 +29,30 @@ function updateSetupUI() {
         document.getElementById('player-count').value = count;
     }
     
+    // Enforce minimum 3 players for card games
+    const cardGames = ['shanghai', 'oldhell', 'spades', 'hearts'];
+    if (cardGames.includes(key) && count < 3) {
+        count = 3;
+        document.getElementById('player-count').value = count;
+    }
+    
+    // Update player count buttons
+    updatePlayerCountButtons();
+    
+    // Disable 2-player button for card games
+    const btn2 = document.getElementById('pc-2');
+    if (btn2) {
+        if (cardGames.includes(key)) {
+            btn2.disabled = true;
+            btn2.style.opacity = '0.3';
+            btn2.style.cursor = 'not-allowed';
+        } else {
+            btn2.disabled = false;
+            btn2.style.opacity = '1';
+            btn2.style.cursor = 'pointer';
+        }
+    }
+    
     const teamDiv = document.getElementById('team-option');
     const teamBtn = document.getElementById('use-teams');
 
@@ -62,6 +86,14 @@ function updateSetupUI() {
 }
 
 function setPlayerCount(num) {
+    const key = document.getElementById('game-select').value;
+    const cardGames = ['shanghai', 'oldhell', 'spades', 'hearts'];
+    
+    // Prevent setting 2 players for card games
+    if (cardGames.includes(key) && num === 2) {
+        return;
+    }
+    
     document.getElementById('player-count').value = num;
     updatePlayerCountButtons();
     updateSetupUI();

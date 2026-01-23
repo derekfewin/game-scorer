@@ -8,6 +8,7 @@ function showNames() {
     const count = parseInt(document.getElementById('player-count').value);
     const useTeams = isTeamsActive();
     const randomize = isRandomizeActive();
+    const conf = GAMES[state.gameKey];
     
     document.getElementById('setup-screen').style.display = 'none';
     document.getElementById('name-screen').style.display = 'block';
@@ -21,11 +22,14 @@ function showNames() {
     const container = document.getElementById('name-inputs');
     container.innerHTML = '';
     
-    // Add dealer order info box
-    const infoBox = document.createElement('div');
-    infoBox.style.cssText = 'background:#fff3cd; padding:12px; border-radius:8px; margin-bottom:20px; border:1px solid #ffc107; text-align:center;';
-    infoBox.innerHTML = `<span style="color:#856404; font-size:0.9em; font-weight:600;">ℹ️ Player order determines dealer rotation</span>`;
-    container.appendChild(infoBox);
+    // Only show dealer info for games with dealers
+    if (conf.hasDealer) {
+        // Add dealer order info box
+        const infoBox = document.createElement('div');
+        infoBox.style.cssText = 'background:#fff3cd; padding:12px; border-radius:8px; margin-bottom:20px; border:1px solid #ffc107; text-align:center;';
+        infoBox.innerHTML = `<span style="color:#856404; font-size:0.9em; font-weight:600;">ℹ️ Player order determines dealer rotation</span>`;
+        container.appendChild(infoBox);
+    }
     
     // Add randomize info for Shanghai
     if (state.gameKey === 'shanghai' && randomize) {
@@ -43,12 +47,14 @@ function showNames() {
             html += `<span class="team-label">Team ${i}</span>`;
             
             // Player 1 of team
-            html += `<label>Player 1${getDealerNote(i, true)}</label>${nameDropdown(i+'-a')}`;
+            const dealerNote = conf.hasDealer ? getDealerNote(i, true) : '';
+            html += `<label>Player 1${dealerNote}</label>${nameDropdown(i+'-a')}`;
             
             // Player 2 of team
             html += `<label style="margin-top:10px;">Player 2</label>${nameDropdown(i+'-b')}`;
         } else {
-            html += `<label>Player ${i}${getDealerNote(i, false)}</label>${nameDropdown(i)}`;
+            const dealerNote = conf.hasDealer ? getDealerNote(i, false) : '';
+            html += `<label>Player ${i}${dealerNote}</label>${nameDropdown(i)}`;
         }
         html += `</div>`;
         container.innerHTML += html;
