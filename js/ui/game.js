@@ -196,10 +196,37 @@ function renderViewerInfo(area, game, conf) {
         
         let dealerBox = document.createElement('div');
         dealerBox.style.cssText = 'background:#e8f4fd; padding:20px; border-radius:10px; margin-bottom:20px; border:2px solid #3498db; text-align:center;';
-        dealerBox.innerHTML = `
+        
+        let dealerContent = `
             <div style="font-size:0.9em; color:#666; margin-bottom:5px;">${label}</div>
             <div style="font-size:1.8em; font-weight:bold; color:#2c3e50;">🎴 ${dealerName}</div>
         `;
+        
+        // Add Old Hell trump and bids to the dealer box
+        if (state.gameKey === 'oldhell') {
+            if (game.currentTrump) {
+                let color = (game.currentTrump === 'H' || game.currentTrump === 'D') ? 'red' : 'black';
+                dealerContent += `
+                    <div style="margin-top:15px; padding-top:15px; border-top:2px solid #ddd;">
+                        <div style="font-size:0.9em; color:#666; margin-bottom:5px;">Trump Suit</div>
+                        <div style="font-size:2.5em; color:${color};">${getSuitIcon(game.currentTrump)}</div>
+                    </div>
+                `;
+            }
+            
+            // Show viewer's bid if in scoring phase
+            if (game.phase === 'score' && state.viewingAsPlayerIdx !== null) {
+                let myBid = game.players[state.viewingAsPlayerIdx].bid;
+                dealerContent += `
+                    <div style="margin-top:15px; padding-top:15px; border-top:2px solid #ddd;">
+                        <div style="font-size:0.9em; color:#666; margin-bottom:5px;">Your Bid</div>
+                        <div style="font-size:1.8em; font-weight:bold; color:#2c3e50;">${myBid}</div>
+                    </div>
+                `;
+            }
+        }
+        
+        dealerBox.innerHTML = dealerContent;
         area.appendChild(dealerBox);
     }
     
@@ -229,19 +256,6 @@ function renderViewerInfo(area, game, conf) {
         }
         
         area.appendChild(goalBox);
-    }
-    
-    // Old Hell - show trump if in scoring phase
-    if (state.gameKey === 'oldhell' && game.currentTrump) {
-        let trumpBox = document.createElement('div');
-        trumpBox.style.cssText = 'background:#f4ecf7; padding:20px; border-radius:10px; margin-bottom:20px; border:2px solid #8e44ad; text-align:center;';
-        
-        let color = (game.currentTrump === 'H' || game.currentTrump === 'D') ? 'red' : 'black';
-        trumpBox.innerHTML = `
-            <div style="font-size:0.9em; color:#666; margin-bottom:5px;">Trump Suit</div>
-            <div style="font-size:3em; color:${color};">${getSuitIcon(game.currentTrump)}</div>
-        `;
-        area.appendChild(trumpBox);
     }
 }
 
@@ -306,12 +320,8 @@ function createPlayerRow(p, i) {
                     Goal: ${goalTxt}
                   </span>`;
         }
-    } else if (state.gameKey === 'spades' && game.phase === 'score') {
-        let bidTxt = (p.isBlindNil) ? "Blind Nil" : (p.bid === 0 ? "Nil" : p.bid);
-        let bagsTxt = (p.bags > 0) ? ` (Bags: ${p.bags})` : "";
-        sub = `<span class="p-sub">Bid: ${bidTxt}${bagsTxt}</span>`;
     }
-    // Remove Old Hell bid display - not needed since it shows in table
+    // Remove Spades and Old Hell bid display - not needed since it shows in table
     
     if(sub) info += sub;
     info += `</div>`;

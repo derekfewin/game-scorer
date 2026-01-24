@@ -575,6 +575,16 @@ function cancelMultiplayer() {
         window.FirebaseAPI.cleanupFirebase();
     }
     
+    // Clean up any claim listeners
+    if (claimUnsub) {
+        claimUnsub();
+        claimUnsub = null;
+    }
+    if (lobbyUnsubscribe) {
+        lobbyUnsubscribe();
+        lobbyUnsubscribe = null;
+    }
+    
     hostPlayerIndex = null;
     document.getElementById('game-code-display').style.display = 'none';
     document.getElementById('name-screen').style.display = 'none';
@@ -586,6 +596,17 @@ function abortGame() {
         if ((state.isHost || state.isViewer) && window.FirebaseAPI) {
             window.FirebaseAPI.cleanupFirebase();
         }
+        
+        // Clean up any claim listeners
+        if (claimUnsub) {
+            claimUnsub();
+            claimUnsub = null;
+        }
+        if (lobbyUnsubscribe) {
+            lobbyUnsubscribe();
+            lobbyUnsubscribe = null;
+        }
+        
         localStorage.removeItem('cardScorerSave');
         softResetApp();
     });
@@ -604,6 +625,16 @@ function softResetApp() {
     state.isViewer = false;
     state.gameCode = null;
     hostPlayerIndex = null;
+    
+    // Clean up listeners
+    if (claimUnsub) {
+        claimUnsub();
+        claimUnsub = null;
+    }
+    if (lobbyUnsubscribe) {
+        lobbyUnsubscribe();
+        lobbyUnsubscribe = null;
+    }
     
     document.getElementById('game-screen').style.display = 'none';
     document.getElementById('setup-screen').style.display = 'block';

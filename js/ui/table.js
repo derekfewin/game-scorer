@@ -153,6 +153,9 @@ function renderTable() {
                         </div>
                         <div class="spades-score">${score}</div>
                     </div>`;
+                } else if (state.gameKey === 'spades' && h.isBid) {
+                    // Show bid phase with "Bid: X" label
+                    content = `Bid: ${s}`;
                 } else {
                     if (h.starFlags && h.starFlags[i]) {
                         content = `${content}<span class="history-star">★</span>`;
