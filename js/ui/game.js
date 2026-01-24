@@ -36,8 +36,10 @@ function renderGame() {
     
     // Old Hell Special Header
     if (state.gameKey === 'oldhell') {
-        const baseLabel = `Old Hell: ${game.handSize} Cards (${game.phase === 'bid' ? 'Bidding' : 'Scoring'})`;
-        roundLabel = headerPrefix ? `${headerPrefix} • ${baseLabel}` : baseLabel;
+        const phaseLabel = game.phase === 'bid' ? 'Bidding' : 'Scoring';
+        roundLabel = headerPrefix 
+            ? `${headerPrefix} • Old Hell: ${game.handSize} Cards (${phaseLabel})`
+            : `Old Hell: ${game.handSize} Cards (${phaseLabel})`;
     }
     
     // Add target score for games that use it
@@ -123,9 +125,9 @@ function renderGame() {
     
     document.getElementById('round-label').innerHTML = roundLabel;
     
-    // Only show hero content for games that need it (not simple score tracking games)
+    // Only show hero content for games that need it (not simple score tracking games or Old Hell)
     const heroArea = document.getElementById('hero-content');
-    if (state.gameKey === 'rummikub' || state.gameKey === 'triominos' || state.gameKey === 'qwirkle') {
+    if (state.gameKey === 'rummikub' || state.gameKey === 'triominos' || state.gameKey === 'qwirkle' || state.gameKey === 'oldhell') {
         heroArea.style.display = 'none';
     } else {
         heroArea.style.display = 'block';
@@ -140,11 +142,6 @@ function renderGame() {
         renderViewerInfo(area, game, conf);
     } else {
         // HOST/SOLO RENDERING
-        // Old Hell trump selector
-        if (state.gameKey === 'oldhell' && game.phase === 'bid') {
-            area.innerHTML = renderTrumpSelector();
-        }
-
         // Render player inputs
         if (game.settings.useTeams) {
             let teamCount = game.players.length / 2;
@@ -347,13 +344,18 @@ function createPlayerRow(p, i) {
     } else {
         let savedVal = (tempInput && tempInput[i] !== undefined) ? tempInput[i] : '';
         let readonlyAttr = state.isViewer ? 'readonly disabled style="background:#f0f0f0; color:#999;"' : '';
-        inputHtml = `<input type="number" inputmode="numeric" pattern="[0-9]*" class="p-input" data-idx="${i}" 
+        inputHtml = `<input type="tel" inputmode="numeric" pattern="[0-9]*" class="p-input" data-idx="${i}" 
             ${readonlyAttr} value="${savedVal}" placeholder="${game.phase === 'bid' ? 'Bid' : '0'}" onfocus="this.select()" oninput="clearError()">`;
     }
         
     let helpers = "";
     if (state.gameKey === 'qwirkle') {
         helpers = renderHelpers(i);
+    }
+    
+    // Old Hell trump selector during bid phase
+    if (state.gameKey === 'oldhell' && game.phase === 'bid') {
+        helpers = renderTrumpSelector();
     }
     
     if (state.gameKey === 'spades' && game.phase === 'bid') {
@@ -396,14 +398,13 @@ function renderHelpers(pIdx) {
 
 function renderTrumpSelector() {
     let suits = ['S','H','C','D'];
-    let html = `<div class="oh-trump-row">`;
+    let html = '';
     suits.forEach(s => {
         let currentT = state.currentGame.currentTrump;
         let cls = (currentT === s) ? 'selected' : '';
         let color = (s==='H'||s==='D') ? 'red' : 'black';
-        html += `<button class="oh-trump-btn ${cls}" onclick="setTrump('${s}')" style="color:${color}">${getSuitIcon(s)}</button>`;
+        html += `<button class="oh-trump-btn-inline ${cls}" onclick="setTrump('${s}')" style="color:${color}">${getSuitIcon(s)}</button>`;
     });
-    html += `</div>`;
     return html;
 }
 
