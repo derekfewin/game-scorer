@@ -86,12 +86,17 @@ function renderGame() {
         
         if (state.isViewer) {
             document.getElementById('undo-btn').style.display = 'none';
-            document.getElementById('exit-controls').style.display = 'none';
+            document.getElementById('exit-controls').style.display = 'flex';
+            document.getElementById('abort-btn').style.display = 'block';
+            document.getElementById('abort-btn').innerText = '❌ Exit';
+            document.getElementById('finish-btn').style.display = 'none';
         } else {
             document.getElementById('undo-btn').style.display = 'block';
             document.getElementById('exit-controls').style.display = 'flex';
-            document.getElementById('abort-btn').style.display = 'none';
+            document.getElementById('abort-btn').style.display = 'block';
+            document.getElementById('abort-btn').innerText = '❌ Exit (No Save)';
             document.getElementById('finish-btn').innerText = "Finalize & Save";
+            document.getElementById('finish-btn').style.display = 'block';
         }
 
         renderTable();
@@ -536,8 +541,8 @@ function toggleBlindNil(idx) {
 function applyMoon(idx) {
     let inputs = document.querySelectorAll('.p-input');
     inputs.forEach((inp, i) => {
-        if (i === idx) inp.value = "0";
-        else inp.value = "26";
+        if (i === idx) inp.value = "26";
+        else inp.value = "0";
     });
     captureInputs();
 }
