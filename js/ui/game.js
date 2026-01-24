@@ -313,6 +313,9 @@ function createPlayerRow(p, i) {
         let bidTxt = (p.isBlindNil) ? "Blind Nil" : (p.bid === 0 ? "Nil" : p.bid);
         let bagsTxt = (p.bags > 0) ? ` (Bags: ${p.bags})` : "";
         sub = `<span class="p-sub">Bid: ${bidTxt}${bagsTxt}</span>`;
+    } else if (state.gameKey === 'oldhell' && game.phase === 'score') {
+        // Show bid info for Old Hell during scoring phase
+        sub = `<span class="p-sub">Bid: ${p.bid}</span>`;
     }
     
     if(sub) info += sub;
@@ -336,10 +339,9 @@ function createPlayerRow(p, i) {
     if (state.gameKey === 'oldhell' && game.phase === 'score') {
         let isChecked = (tempInput && tempInput[i] === 'true');
         let btnClass = isChecked ? 'made' : 'failed';
-        let btnText = isChecked ? 'Made It' : 'Missed';
+        let btnText = isChecked ? 'Made' : 'Missed';
         
-        inputHtml = `<div style="display:flex; align-items:center;">
-            <span class="oh-bid-disp">Bid: ${p.bid}</span>
+        inputHtml = `<div style="display:flex; align-items:center; gap:10px;">
             <button class="oh-toggle-btn ${btnClass}" onclick="toggleOhScore(${i})">${btnText}</button>
         </div>`;
     } else {

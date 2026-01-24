@@ -126,10 +126,17 @@ function renderTable() {
 
                 if (state.gameKey === 'oldhell' && h.isComplete) {
                     let bid = h.bids[i];
+                    let made = h.made[i];
                     let score = h.scores[i];
-                    let colorClass = (score > 0) ? 'oh-made' : 'oh-missed';
-                    content = `<div class="oh-cell ${colorClass}">
-                        <span>${bid}</span><span>${score}</span>
+                    let colorClass = (made) ? 'oh-made' : 'oh-missed';
+                    let statusText = made ? 'Made' : 'Missed';
+                    
+                    content = `<div class="spades-cell ${colorClass}">
+                        <div class="spades-details">
+                            <span class="s-label">B: ${bid}</span>
+                            <span class="s-label">${statusText}</span>
+                        </div>
+                        <div class="spades-score">${score}</div>
                     </div>`;
                 } else if (state.gameKey === 'spades' && h.isComplete) {
                     let bid = h.bids[i];

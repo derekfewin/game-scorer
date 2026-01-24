@@ -62,8 +62,10 @@ class OldHellGame extends GameBase {
         const bidHistory = this.history.pop();
         const snapshot = this.createSnapshot();
         
+        const madeFlags = rawInputs.map(v => v === 'true');
+        
         const scores = this.players.map((p, i) => {
-            const made = rawInputs[i] === 'true';
+            const made = madeFlags[i];
             return made ? (10 + p.bid) : 0;
         });
         
@@ -83,6 +85,7 @@ class OldHellGame extends GameBase {
         this.history.push({
             label: this.handSize,
             bids: this.players.map(p => p.bid),
+            made: madeFlags,
             scores: scores,
             isComplete: true,
             dealerIdx: this.getDealerIdx(),
