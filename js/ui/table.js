@@ -11,6 +11,8 @@ function renderTable() {
     const thead = document.getElementById('table-head');
     const tbody = document.getElementById('table-body');
     const tfoot = document.getElementById('table-foot');
+
+    let useTeams = game.settings.useTeams;
     
     // Build header
     let hHtml = `<th>Rd</th>`;
@@ -32,8 +34,6 @@ function renderTable() {
     
     if(showGoalCol) hHtml += `<th>Goal</th>`;
     
-    let useTeams = game.settings.useTeams;
-
     if (useTeams) {
         let teamCount = game.players.length / 2;
         for(let t = 0; t < teamCount; t++) {
