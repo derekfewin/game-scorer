@@ -204,25 +204,33 @@ function renderViewerInfo(area, game, conf) {
         
         // Add Old Hell trump and bids to the dealer box
         if (state.gameKey === 'oldhell') {
-            if (game.currentTrump) {
-                let color = (game.currentTrump === 'H' || game.currentTrump === 'D') ? 'red' : 'black';
-                dealerContent += `
-                    <div style="margin-top:15px; padding-top:15px; border-top:2px solid #ddd;">
-                        <div style="font-size:0.9em; color:#666; margin-bottom:5px;">Trump Suit</div>
-                        <div style="font-size:2.5em; color:${color};">${getSuitIcon(game.currentTrump)}</div>
-                    </div>
-                `;
-            }
-            
-            // Show viewer's bid if in scoring phase
-            if (game.phase === 'score' && state.viewingAsPlayerIdx !== null) {
-                let myBid = game.players[state.viewingAsPlayerIdx].bid;
-                dealerContent += `
-                    <div style="margin-top:15px; padding-top:15px; border-top:2px solid #ddd;">
-                        <div style="font-size:0.9em; color:#666; margin-bottom:5px;">Your Bid</div>
-                        <div style="font-size:1.8em; font-weight:bold; color:#2c3e50;">${myBid}</div>
-                    </div>
-                `;
+            if (game.currentTrump || game.phase === 'score') {
+                dealerContent += `<div style="margin-top:15px; padding-top:15px; border-top:2px solid #ddd;">`;
+                dealerContent += `<div style="display:flex; justify-content:space-between; align-items:center; gap:20px;">`;
+                
+                // Trump Suit (left side)
+                if (game.currentTrump) {
+                    let color = (game.currentTrump === 'H' || game.currentTrump === 'D') ? 'red' : 'black';
+                    dealerContent += `
+                        <div style="flex:1; text-align:left;">
+                            <div style="font-size:0.85em; color:#666; margin-bottom:5px;">Trump Suit</div>
+                            <div style="font-size:2.5em; color:${color};">${getSuitIcon(game.currentTrump)}</div>
+                        </div>
+                    `;
+                }
+                
+                // Your Bid (right side) - only in scoring phase
+                if (game.phase === 'score' && state.viewingAsPlayerIdx !== null) {
+                    let myBid = game.players[state.viewingAsPlayerIdx].bid;
+                    dealerContent += `
+                        <div style="flex:1; text-align:right;">
+                            <div style="font-size:0.85em; color:#666; margin-bottom:5px;">Your Bid</div>
+                            <div style="font-size:2em; font-weight:bold; color:#2c3e50;">${myBid}</div>
+                        </div>
+                    `;
+                }
+                
+                dealerContent += `</div></div>`;
             }
         }
         

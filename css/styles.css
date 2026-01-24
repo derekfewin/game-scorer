@@ -561,22 +561,6 @@ th:first-child { width: 30px; }
     box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
 }
 
-.oh-toggle-btn { 
-    border: none; 
-    border-radius: 8px; 
-    font-weight: bold; 
-    color: white; 
-    width: 80px; 
-    height: 44px; 
-    font-size: 14px; 
-    cursor: pointer; 
-    transition: background 0.2s;
-    margin: 0;
-}
-
-.oh-toggle-btn.made { background: #27ae60; }
-.oh-toggle-btn.failed { background: #c0392b; }
-
 .oh-bid-disp { 
     font-size: 1.2em; 
     font-weight: bold; 
@@ -609,6 +593,23 @@ th:first-child { width: 30px; }
     transform: scale(1.05);
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
+
+/* Old Hell Made/Missed Toggle - Match input field height */
+.oh-toggle-btn { 
+    border: none; 
+    border-radius: 8px; 
+    font-weight: bold; 
+    color: white; 
+    width: 80px; 
+    height: 44px; 
+    font-size: 14px; 
+    cursor: pointer; 
+    transition: background 0.2s;
+    margin: 0;
+}
+
+.oh-toggle-btn.made { background: #27ae60; }
+.oh-toggle-btn.failed { background: #c0392b; }
 
 /* Split Cell (Used by Old Hell & Spades) */
 .oh-cell { 
