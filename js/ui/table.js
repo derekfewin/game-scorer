@@ -19,6 +19,11 @@ function renderTable() {
         hHtml = `<th>Cards</th><th>Trump</th>`;
     }
     
+    // Add dealer column for team games with dealers
+    if (useTeams && conf.hasDealer) {
+        hHtml += `<th>D</th>`;
+    }
+    
     let showGoalCol = true;
     if (game.randomMap) showGoalCol = false;
     if (state.gameKey === 'qwirkle' || state.gameKey === 'oldhell' || 
@@ -68,6 +73,14 @@ function renderTable() {
         if (state.gameKey === 'oldhell') {
             let tIcon = h.trump ? `<span style="color:${(h.trump==='H'||h.trump==='D')?'red':'black'}">${getSuitIcon(h.trump)}</span>` : '';
             rowHtml += `<td style="font-size:1.2em">${tIcon}</td>`;
+        }
+        
+        // Add dealer indicator for team games
+        if (useTeams && conf.hasDealer && h.dealerIdx !== undefined) {
+            let dealerName = game.players[h.dealerIdx].name;
+            // Get first letter of dealer's name
+            let initial = dealerName.charAt(0).toUpperCase();
+            rowHtml += `<td style="font-weight:bold; font-size:0.9em;">${initial}</td>`;
         }
         
         if(showGoalCol) rowHtml += `<td class="contract-text">${ctx}</td>`;
@@ -183,6 +196,7 @@ function renderTable() {
     // Build footer
     let fHtml = `<td>Tot</td>`;
     if(state.gameKey === 'oldhell') fHtml += `<td></td>`;
+    if(useTeams && conf.hasDealer) fHtml += `<td></td>`;
     if(showGoalCol) fHtml += `<td></td>`;
     
     if (useTeams) {
