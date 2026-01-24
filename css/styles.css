@@ -565,11 +565,12 @@ th:first-child { width: 30px; }
     border-radius: 8px; 
     font-weight: bold; 
     color: white; 
-    width: 100px; 
-    height: 50px; 
-    font-size: 16px; 
+    width: 80px; 
+    height: 44px; 
+    font-size: 14px; 
     cursor: pointer; 
-    transition: background 0.2s; 
+    transition: background 0.2s;
+    margin: 0;
 }
 
 .oh-toggle-btn.made { background: #27ae60; }
@@ -581,84 +582,6 @@ th:first-child { width: 30px; }
     color: #555; 
     margin-right: 15px; 
     white-space: nowrap; 
-}
-
-/* Player Count Grid */
-.player-count-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-top: 10px;
-}
-
-@media (min-width: 500px) {
-    .player-count-grid {
-        grid-template-columns: repeat(7, 1fr);
-    }
-}
-
-.pc-btn {
-    background: white;
-    border: 2px solid #ddd;
-    color: #666;
-    padding: 12px;
-    border-radius: 8px;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin: 0;
-}
-
-.pc-btn:hover {
-    border-color: var(--primary);
-    color: var(--primary);
-}
-
-.pc-btn.active {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: white;
-    box-shadow: 0 2px 8px rgba(44, 62, 80, 0.3);
-}
-
-/* Toggle Buttons (Teams, Randomize) */
-.toggle-btn {
-    background: white;
-    border: 2px solid #ddd;
-    color: #666;
-    padding: 15px;
-    width: 100%;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin: 0;
-}
-
-.toggle-btn:hover {
-    border-color: var(--primary);
-    color: var(--primary);
-}
-
-.toggle-btn.active {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: white;
-    box-shadow: 0 2px 8px rgba(44, 62, 80, 0.3);
-}
-
-.toggle-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background: #f5f5f5;
-    color: #999;
-}
-
-.toggle-btn:disabled:hover {
-    border-color: #ddd;
-    color: #999;
 }
 
 /* Old Hell Inline Trump Buttons */

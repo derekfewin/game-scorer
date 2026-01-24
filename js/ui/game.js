@@ -310,10 +310,8 @@ function createPlayerRow(p, i) {
         let bidTxt = (p.isBlindNil) ? "Blind Nil" : (p.bid === 0 ? "Nil" : p.bid);
         let bagsTxt = (p.bags > 0) ? ` (Bags: ${p.bags})` : "";
         sub = `<span class="p-sub">Bid: ${bidTxt}${bagsTxt}</span>`;
-    } else if (state.gameKey === 'oldhell' && game.phase === 'score') {
-        // Show bid info for Old Hell during scoring phase
-        sub = `<span class="p-sub">Bid: ${p.bid}</span>`;
     }
+    // Remove Old Hell bid display - not needed since it shows in table
     
     if(sub) info += sub;
     info += `</div>`;

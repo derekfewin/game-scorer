@@ -138,6 +138,9 @@ function renderTable() {
                         </div>
                         <div class="spades-score">${score}</div>
                     </div>`;
+                } else if (state.gameKey === 'oldhell' && h.isBid) {
+                    // Show bid phase with "Bid: X" label
+                    content = `Bid: ${s}`;
                 } else if (state.gameKey === 'spades' && h.isComplete) {
                     let bid = h.bids[i];
                     let trick = h.tricks[i];
