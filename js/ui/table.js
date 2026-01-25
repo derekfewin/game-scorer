@@ -12,6 +12,9 @@ function renderTable() {
     const tbody = document.getElementById('table-body');
     const tfoot = document.getElementById('table-foot');
     
+    // Declare useTeams FIRST before any usage
+    let useTeams = game.settings.useTeams;
+    
     // Build header
     let hHtml = `<th>Rd</th>`;
     
@@ -19,10 +22,8 @@ function renderTable() {
         hHtml = `<th>Cards</th><th>Trump</th>`;
     }
     
-    // Add dealer column for team games with dealers
-    let useTeams = game.settings.useTeams;
-
-    if (useTeams && conf.hasDealer) {
+    // Add dealer column for games with dealers (all modes)
+    if (conf.hasDealer) {
         hHtml += `<th>D</th>`;
     }
     
@@ -33,7 +34,7 @@ function renderTable() {
     if (state.gameKey === 'spades') showGoalCol = false;
     
     if(showGoalCol) hHtml += `<th>Goal</th>`;
-    
+
     if (useTeams) {
         let teamCount = game.players.length / 2;
         for(let t = 0; t < teamCount; t++) {
@@ -75,12 +76,11 @@ function renderTable() {
             rowHtml += `<td style="font-size:1.2em">${tIcon}</td>`;
         }
         
-        // Add dealer indicator for team games
-        if (useTeams && conf.hasDealer && h.dealerIdx !== undefined) {
+        // Add dealer indicator for all games with dealers
+        if (conf.hasDealer && h.dealerIdx !== undefined) {
             let dealerName = game.players[h.dealerIdx].name;
-            // Get first letter of dealer's name
-            let initial = dealerName.charAt(0).toUpperCase();
-            rowHtml += `<td style="font-weight:bold; font-size:0.9em;">${initial}</td>`;
+            let initials = dealerName.substring(0, 2).toUpperCase();
+            rowHtml += `<td style="font-weight:bold; font-size:0.85em;">${initials}</td>`;
         }
         
         if(showGoalCol) rowHtml += `<td class="contract-text">${ctx}</td>`;
@@ -152,7 +152,6 @@ function renderTable() {
                         <div class="spades-score">${score}</div>
                     </div>`;
                 } else if (state.gameKey === 'oldhell' && h.isBid) {
-                    // Show bid phase with "Bid: X" label
                     content = `Bid: ${s}`;
                 } else if (state.gameKey === 'spades' && h.isComplete) {
                     let bid = h.bids[i];
@@ -167,7 +166,6 @@ function renderTable() {
                         <div class="spades-score">${score}</div>
                     </div>`;
                 } else if (state.gameKey === 'spades' && h.isBid) {
-                    // Show bid phase with "Bid: X" label
                     content = `Bid: ${s}`;
                 } else {
                     if (h.starFlags && h.starFlags[i]) {
