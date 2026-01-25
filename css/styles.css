@@ -186,7 +186,7 @@ th:first-child { width: 30px; }
 
 /* Game Specific Column Widths */
 .game-shanghai th:nth-child(2) { width: 35px; }
-.game-shanghai th:nth-child(3) { width: 200px; }
+.game-shanghai th:nth-child(3) { width: 100px; }
 .game-oldhell th:first-child { width: 70px; } 
 .game-oldhell th:nth-child(2) { width: 50px; } 
 

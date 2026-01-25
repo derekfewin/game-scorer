@@ -33,6 +33,7 @@ const GAMES = {
         type: "low_score",
         phases: ["score"],
         rounds: 13, 
+		hasDealer: true, 
         hasStarter: true, 
         hasTeams: false
     },

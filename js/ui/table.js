@@ -121,7 +121,7 @@ function renderTable() {
                         let scoreSum = h.scores[p1Idx] + h.scores[p2Idx];
                         if (state.gameKey === 'shanghai' && game.randomMap) {
                             let g = game.randomMap[p1Idx][rIdx];
-                            valToDisplay = `<div style="font-size:0.75em; color:#555; margin-bottom:4px; line-height:1.2; text-align:left">
+                            valToDisplay = `<div style="font-size:0.75em; color:#555; margin-bottom:4px; line-height:1.2; text-align:center">
                                 <div>${g}</div>
                             </div>
                             <span style="font-weight:bold">${scoreSum}</span>`;
