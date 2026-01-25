@@ -11,6 +11,14 @@ class ShanghaiGame extends GameBase {
         this.contracts = [...config.rounds];
         this.randomMap = null;
         
+        const shuffle = (array) => {
+            const arr = [...array]; // Create a copy to avoid mutating the original
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        };
         if (settings.randomize) {
             if (settings.useTeams) {
                 // Generate team-based random goals
@@ -19,14 +27,14 @@ class ShanghaiGame extends GameBase {
                 
                 for(let t = 0; t < teamCount; t++) {
                     // Create one random sequence per team
-                    let goals = [...config.rounds].sort(() => 0.5 - Math.random());
+                    let goals = shuffle(config.rounds);
                     this.randomMap[t * 2] = goals;
                     this.randomMap[t * 2 + 1] = goals;
                 }
             } else {
                 // Individual random goals
                 this.randomMap = players.map(() => 
-                    [...config.rounds].sort(() => 0.5 - Math.random())
+                    shuffle(config.rounds)
                 );
             }
         }
