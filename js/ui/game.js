@@ -361,7 +361,7 @@ function createPlayerRow(p, i) {
         let savedVal = (tempInput && tempInput[i] !== undefined) ? tempInput[i] : '';
         let readonlyAttr = state.isViewer ? 'readonly disabled style="background:#f0f0f0; color:#999;"' : '';
         inputHtml = `<input type="tel" inputmode="numeric" pattern="[0-9]*" class="p-input" data-idx="${i}" 
-            ${readonlyAttr} value="${savedVal}" placeholder="${game.phase === 'bid' ? 'Bid' : '0'}" onfocus="this.select()" oninput="clearError()">`;
+            ${readonlyAttr} value="${savedVal}" placeholder="${game.phase === 'bid' ? 'Bid' : '0'}" onfocus="this.select()" oninput="clearError(); filterNumericInput(this)">`;
     }
         
     let helpers = "";
@@ -564,4 +564,24 @@ function applyMoon(idx) {
         else inp.value = "0";
     });
     captureInputs();
+}
+
+function filterNumericInput(input) {
+    // Remove any non-numeric characters except minus sign at the start
+    let value = input.value;
+    let cleaned = value.replace(/[^0-9-]/g, '');
+    
+    // Only allow minus at the beginning
+    if (cleaned.indexOf('-') > 0) {
+        cleaned = cleaned.replace(/-/g, '');
+    }
+    
+    // Limit to one minus sign
+    if ((cleaned.match(/-/g) || []).length > 1) {
+        cleaned = '-' + cleaned.replace(/-/g, '');
+    }
+    
+    if (value !== cleaned) {
+        input.value = cleaned;
+    }
 }
