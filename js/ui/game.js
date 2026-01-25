@@ -567,19 +567,9 @@ function applyMoon(idx) {
 }
 
 function filterNumericInput(input) {
-    // Remove any non-numeric characters except minus sign at the start
+    // Remove any non-numeric characters (no negatives allowed)
     let value = input.value;
-    let cleaned = value.replace(/[^0-9-]/g, '');
-    
-    // Only allow minus at the beginning
-    if (cleaned.indexOf('-') > 0) {
-        cleaned = cleaned.replace(/-/g, '');
-    }
-    
-    // Limit to one minus sign
-    if ((cleaned.match(/-/g) || []).length > 1) {
-        cleaned = '-' + cleaned.replace(/-/g, '');
-    }
+    let cleaned = value.replace(/[^0-9]/g, '');
     
     if (value !== cleaned) {
         input.value = cleaned;

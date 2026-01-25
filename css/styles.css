@@ -185,8 +185,8 @@ th {
 th:first-child { width: 30px; } 
 
 /* Game Specific Column Widths */
-.game-shanghai th:nth-child(2) { width: 30px; }
-.game-shanghai th:nth-child(3) { width: 150px; }
+.game-shanghai th:nth-child(2) { width: 35px; }
+.game-shanghai th:nth-child(3) { width: 200px; }
 .game-oldhell th:first-child { width: 70px; } 
 .game-oldhell th:nth-child(2) { width: 50px; } 
 
@@ -660,8 +660,8 @@ th:first-child { width: 30px; }
 
 .game-oldhell th:not(:first-child):not(:nth-child(2)),
 .game-spades th:not(:first-child) { 
-    text-align: right; 
-    padding-right: 10px; 
+    text-align: center;
+    padding-right: 8px; 
 }
 
 /* SPADES SPECIFIC */

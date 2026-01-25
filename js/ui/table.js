@@ -11,8 +11,6 @@ function renderTable() {
     const thead = document.getElementById('table-head');
     const tbody = document.getElementById('table-body');
     const tfoot = document.getElementById('table-foot');
-
-    let useTeams = game.settings.useTeams;
     
     // Build header
     let hHtml = `<th>Rd</th>`;
@@ -22,6 +20,8 @@ function renderTable() {
     }
     
     // Add dealer column for team games with dealers
+    let useTeams = game.settings.useTeams;
+
     if (useTeams && conf.hasDealer) {
         hHtml += `<th>D</th>`;
     }
@@ -134,7 +134,7 @@ function renderTable() {
             }
         } else {
             h.scores.forEach((s, i) => {
-                let cls = (i === h.dealerIdx) ? 'history-dealer' : '';
+                let cls = '';
                 let content = s;
 
                 if (state.gameKey === 'oldhell' && h.isComplete) {
@@ -196,7 +196,7 @@ function renderTable() {
     // Build footer
     let fHtml = `<td>Tot</td>`;
     if(state.gameKey === 'oldhell') fHtml += `<td></td>`;
-    if(useTeams && conf.hasDealer) fHtml += `<td></td>`;
+    if(conf.hasDealer) fHtml += `<td></td>`;
     if(showGoalCol) fHtml += `<td></td>`;
     
     if (useTeams) {
