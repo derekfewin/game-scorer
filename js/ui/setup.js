@@ -150,9 +150,39 @@ function isRandomizeActive() {
 }
 
 function showJoinPrompt() {
+    // Clean up any existing listeners before showing join modal
+    if (claimUnsub) {
+        console.log('🧹 Cleaning up claim listener before showing join prompt');
+        claimUnsub();
+        claimUnsub = null;
+    }
+    if (lobbyUnsubscribe) {
+        console.log('🧹 Cleaning up lobby listener before showing join prompt');
+        lobbyUnsubscribe();
+        lobbyUnsubscribe = null;
+    }
+    
+    // Reset the join modal to initial state
+    const modalBox = document.querySelector('#join-modal .modal-box');
+    if (modalBox) {
+        modalBox.innerHTML = `
+            <h3 style="margin-top:0">Join Game</h3>
+            <input type="text" id="game-code-input" placeholder="Enter 6-digit code" 
+                   maxlength="6" style="text-align:center; font-size:24px; letter-spacing:5px; text-transform:uppercase;">
+            <div class="modal-btn-row" style="margin-top:20px">
+                <button class="modal-btn cancel" onclick="closeJoinModal()">Cancel</button>
+                <button class="modal-btn confirm" onclick="attemptJoinGame()">Join</button>
+            </div>
+        `;
+    }
+    
     document.getElementById('join-modal').style.display = 'flex';
-    document.getElementById('game-code-input').value = '';
-    document.getElementById('game-code-input').focus();
+    
+    // Focus on input after modal is shown
+    setTimeout(() => {
+        const input = document.getElementById('game-code-input');
+        if (input) input.focus();
+    }, 100);
 }
 
 function closeJoinModal() {
