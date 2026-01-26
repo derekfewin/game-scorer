@@ -269,13 +269,18 @@ function restoreGameFromFirebase(parsed) {
 function cleanupFirebase() {
     if (!state.firebaseRef) return;
     
+    console.log('🧹 cleanupFirebase called');
+    
     if (state.isHost) {
+        console.log('🧹 Removing entire game (host)');
         remove(state.firebaseRef);
     } else if (state.viewingAsPlayerIdx !== null) {
+        console.log('🧹 Removing viewer claim for player', state.viewingAsPlayerIdx);
         remove(ref(database, `games/${state.gameCode}/claims/${state.viewingAsPlayerIdx}`));
     }
     
     if (state.viewerId && state.gameCode) {
+        console.log('🧹 Removing viewer registration');
         remove(ref(database, `games/${state.gameCode}/viewers/${state.viewerId}`));
     }
 
@@ -286,6 +291,8 @@ function cleanupFirebase() {
     state.viewingAsPlayerIdx = null;
     state.viewerId = null;
     state.connectedViewers = null;
+    
+    console.log('✅ Firebase cleanup complete');
 }
 
 function resolveNameFromIndex(idx) {

@@ -312,7 +312,19 @@ function cancelLobbyWait() {
 function showIdentitySelection(players) {
     console.log('👤 showIdentitySelection() called with', players.length, 'players');
     
+    // Clean up old claim listener first
+    if (claimUnsub) {
+        console.log('🧹 Cleaning up old claim listener');
+        claimUnsub();
+        claimUnsub = null;
+    }
+    
     const modalBox = document.querySelector('#join-modal .modal-box');
+    
+    if (!modalBox) {
+        console.error('❌ Modal box not found!');
+        return;
+    }
     
     modalBox.innerHTML = `
         <h3 style="margin-top:0">Who are you?</h3>
@@ -324,6 +336,11 @@ function showIdentitySelection(players) {
     `;
     
     const list = document.getElementById('player-select-list');
+    
+    if (!list) {
+        console.error('❌ Player select list not found!');
+        return;
+    }
     
     players.forEach((p, i) => {
         console.log(`  Creating button for player ${i}:`, p.name);
