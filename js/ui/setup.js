@@ -639,12 +639,10 @@ function cancelMultiplayer() {
 }
 
 function abortGame() {
+    const isViewerInGame = state.isViewer;
+    
     showConfirm("Exit game? No stats will be saved.", () => {
-        if ((state.isHost || state.isViewer) && window.FirebaseAPI) {
-            window.FirebaseAPI.cleanupFirebase();
-        }
-        
-        // Clean up any claim listeners
+        // Clean up listeners
         if (claimUnsub) {
             claimUnsub();
             claimUnsub = null;
@@ -652,6 +650,17 @@ function abortGame() {
         if (lobbyUnsubscribe) {
             lobbyUnsubscribe();
             lobbyUnsubscribe = null;
+        }
+        
+        // For viewers, only release their claim, don't cleanup everything
+        if (isViewerInGame && state.viewingAsPlayerIdx !== null && window.FirebaseAPI) {
+            console.log('🧹 Viewer exiting - releasing claim but staying registered');
+            window.FirebaseAPI.releasePlayerClaim(state.viewingAsPlayerIdx);
+            state.viewingAsPlayerIdx = null;
+        } else if (state.isHost && window.FirebaseAPI) {
+            // Host exits - cleanup everything
+            console.log('🧹 Host exiting - cleaning up entire game');
+            window.FirebaseAPI.cleanupFirebase();
         }
         
         localStorage.removeItem('cardScorerSave');
@@ -667,10 +676,18 @@ function finishGameNow() {
 }
 
 function softResetApp() {
+    const wasViewer = state.isViewer;
+    const gameCode = state.gameCode;
+    
     state.currentGame = null;
-    state.isHost = false;
-    state.isViewer = false;
-    state.gameCode = null;
+    
+    // If viewer, keep their connection alive
+    if (!wasViewer) {
+        state.isHost = false;
+        state.isViewer = false;
+        state.gameCode = null;
+    }
+    
     hostPlayerIndex = null;
     
     // Clean up listeners
@@ -687,4 +704,9 @@ function softResetApp() {
     document.getElementById('setup-screen').style.display = 'block';
     resetTheme();
     checkRestore();
+    
+    // For viewers, show a message that they can rejoin
+    if (wasViewer && gameCode) {
+        console.log('💡 Viewer can rejoin with code:', gameCode);
+    }
 }
