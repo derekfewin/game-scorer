@@ -68,8 +68,8 @@
 <!-- SETUP SCREEN -->
 <div class="card" id="setup-screen">
     <h2 style="text-align:center">🎲 Game Scorer</h2>
+    
     <button id="restore-btn" class="btn-restore" style="display:none;" onclick="restoreGame()">⚠️ Resume Last Game</button>
-    <button class="btn-info" onclick="showLeaderboard()">🏆 Leaderboard</button>
 
     <div class="setup-group">
         <label>Select Game</label>
@@ -103,13 +103,38 @@
         <button id="randomize-goals" class="toggle-btn" onclick="toggleRandomize()">🔀 Randomize Goals?</button>
     </div>
     
-    <!-- ONLINE MULTIPLAYER OPTIONS -->
-    <div class="setup-group" style="border-bottom:none; padding-bottom:0;">
-        <button class="btn-game-action" onclick="showNamesAsHost()">🎮 Host Multiplayer Game</button>
-        <button class="btn-outline" style="background:white; border-color:#2980b9; color:#2980b9;" onclick="showJoinPrompt()">📱 Join Multiplayer Game</button>
+    <!-- Combined options row for Shanghai (teams + randomize) -->
+    <div id="shanghai-options-row" style="display:none; gap:10px; margin-bottom:15px;">
+        <button id="use-teams-shanghai" class="toggle-btn" style="flex:1;" onclick="toggleTeams()">Play in Teams?</button>
+        <button id="randomize-goals-shanghai" class="toggle-btn" style="flex:1;" onclick="toggleRandomize()">🔀 Randomize Goals?</button>
+    </div>
+    
+    <!-- Combined options row for Spades/Hearts (teams + target) -->
+    <div id="team-target-row" style="display:none; gap:10px; margin-bottom:15px; align-items:flex-end;">
+        <div style="flex:1;">
+            <button id="use-teams-row" class="toggle-btn" style="width:100%;" onclick="toggleTeams()">Play in Teams?</button>
+        </div>
+        <div style="flex:1;">
+            <label style="display:block; margin-bottom:5px; font-size:0.9em;">Target Score</label>
+            <input type="number" id="target-score-row" inputmode="numeric" 
+                   onchange="document.getElementById('target-score').value = this.value" 
+                   style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+        </div>
+    </div>
+    
+    <!-- ONLINE MULTIPLAYER OPTIONS - Now on same row -->
+    <div style="display:flex; gap:10px; margin-bottom:15px;">
+        <button class="btn-game-action" style="flex:1;" onclick="showNamesAsHost()">🎮 Host Game</button>
+        <button class="btn-outline" style="flex:1; background:white; border-color:#2980b9; color:#2980b9;" onclick="showJoinPrompt()">📱 Join Game</button>
     </div>
     
     <button class="btn-game-action" onclick="showNames()">▶ Start Local Game</button>
+    
+    <!-- Settings and Leaderboard at bottom -->
+    <div style="display:flex; gap:10px; margin-top:20px; padding-top:15px; border-top:1px solid #ddd;">
+        <button class="btn-info" style="flex:1;" onclick="showSettings()">⚙️ Settings</button>
+        <button class="btn-info" style="flex:1;" onclick="showLeaderboard()">🏆 Leaderboard</button>
+    </div>
 </div>
 
 <!-- NAME SCREEN -->
@@ -192,7 +217,369 @@
     </div>
 </div>
 
+
+<!-- SETTINGS SCREEN -->
+<div class="card" id="settings-screen" style="display:none;">
+    <h2 style="text-align:center; margin-bottom:25px;">⚙️ Settings</h2>
+    
+    <style>
+        .setting-section {
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .setting-header {
+            background: #f5f5f5;
+            padding: 12px 15px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1em;
+            color: #2c3e50;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .setting-header:hover {
+            background: #eeeeee;
+        }
+        
+        .setting-content {
+            padding: 15px;
+            background: white;
+        }
+        
+        .setting-row {
+            margin-bottom: 15px;
+        }
+        
+        .setting-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .setting-label {
+            display: block;
+            font-size: 0.9em;
+            color: #555;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        
+        .setting-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .setting-checkbox:hover {
+            background: #f0f0f0;
+        }
+        
+        .setting-checkbox input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            margin: 0;
+        }
+        
+        .setting-checkbox label {
+            cursor: pointer;
+            margin: 0;
+            flex: 1;
+            font-size: 0.95em;
+        }
+        
+        .setting-input, .setting-select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.95em;
+        }
+        
+        .setting-input:focus, .setting-select:focus {
+            outline: none;
+            border-color: #27ae60;
+        }
+        
+        .setting-color {
+            width: 100%;
+            height: 50px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .setting-divider {
+            margin: 20px 0;
+            border: none;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .setting-note {
+            font-size: 0.85em;
+            color: #888;
+            margin-top: 8px;
+            font-style: italic;
+        }
+    </style>
+    
+    <!-- Firebase Configuration -->
+    <details class="setting-section">
+        <summary class="setting-header">
+            <span>🔥 Firebase Configuration</span>
+            <span style="font-size:0.8em; color:#888;">▼</span>
+        </summary>
+        <div class="setting-content">
+            <div class="setting-row">
+                <div class="setting-checkbox" onclick="document.getElementById('setting-use-custom-firebase').click()">
+                    <input type="checkbox" id="setting-use-custom-firebase" onchange="toggleFirebaseFields(); event.stopPropagation();">
+                    <label for="setting-use-custom-firebase">Use Custom Firebase Instance</label>
+                </div>
+            </div>
+            
+            <div id="firebase-custom-fields" style="display:none;">
+                <div class="setting-divider"></div>
+                
+                <div class="setting-row">
+                    <span class="setting-label">API Key</span>
+                    <input type="text" class="setting-input" id="setting-firebase-api-key" placeholder="Your Firebase API Key">
+                </div>
+                
+                <div class="setting-row">
+                    <span class="setting-label">Database URL</span>
+                    <input type="text" class="setting-input" id="setting-firebase-db-url" placeholder="https://your-app.firebaseio.com">
+                </div>
+                
+                <div class="setting-row">
+                    <span class="setting-label">Project ID</span>
+                    <input type="text" class="setting-input" id="setting-firebase-project-id" placeholder="your-project-id">
+                </div>
+                
+                <div class="setting-row">
+                    <span class="setting-label">Storage Bucket</span>
+                    <input type="text" class="setting-input" id="setting-firebase-storage" placeholder="your-app.appspot.com">
+                </div>
+                
+                <div class="setting-row">
+                    <span class="setting-label">Messaging Sender ID</span>
+                    <input type="text" class="setting-input" id="setting-firebase-sender-id" placeholder="123456789">
+                </div>
+                
+                <div class="setting-row">
+                    <span class="setting-label">App ID</span>
+                    <input type="text" class="setting-input" id="setting-firebase-app-id" placeholder="1:123:web:abc123">
+                    <div class="setting-note">⚠️ Requires app reload to take effect</div>
+                </div>
+            </div>
+        </div>
+    </details>
+    
+    <!-- Theme & Display -->
+    <details class="setting-section" open>
+        <summary class="setting-header">
+            <span>🎨 Theme & Display</span>
+            <span style="font-size:0.8em; color:#888;">▼</span>
+        </summary>
+        <div class="setting-content">
+            <div class="setting-row">
+                <div class="setting-checkbox" onclick="document.getElementById('setting-dark-mode').click()">
+                    <input type="checkbox" id="setting-dark-mode" onclick="event.stopPropagation();">
+                    <label for="setting-dark-mode">Dark Mode</label>
+                </div>
+            </div>
+            
+            <div class="setting-row">
+                <span class="setting-label">Accent Color</span>
+                <input type="color" class="setting-color" id="setting-accent-color" value="#27ae60">
+            </div>
+            
+            <div class="setting-row">
+                <span class="setting-label">Font Size</span>
+                <select class="setting-select" id="setting-font-size">
+                    <option value="small">Small</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                </select>
+            </div>
+            
+            <div class="setting-row">
+                <div class="setting-checkbox" onclick="document.getElementById('setting-compact-mode').click()">
+                    <input type="checkbox" id="setting-compact-mode" onclick="event.stopPropagation();">
+                    <label for="setting-compact-mode">Compact Mode</label>
+                </div>
+            </div>
+            
+            <div class="setting-row">
+                <div class="setting-checkbox" onclick="document.getElementById('setting-show-dealer-notes').click()">
+                    <input type="checkbox" id="setting-show-dealer-notes" onclick="event.stopPropagation();">
+                    <label for="setting-show-dealer-notes">Show Dealer Rotation Notes</label>
+                </div>
+            </div>
+        </div>
+    </details>
+    
+    <!-- Game Defaults -->
+    <details class="setting-section" open>
+        <summary class="setting-header">
+            <span>🎲 Game Defaults</span>
+            <span style="font-size:0.8em; color:#888;">▼</span>
+        </summary>
+        <div class="setting-content">
+            <div class="setting-row">
+                <span class="setting-label">Default Player Count</span>
+                <select class="setting-select" id="setting-default-players">
+                    <option value="2">2 Players</option>
+                    <option value="3">3 Players</option>
+                    <option value="4">4 Players</option>
+                    <option value="5">5 Players</option>
+                    <option value="6">6 Players</option>
+                    <option value="7">7 Players</option>
+                    <option value="8">8 Players</option>
+                </select>
+            </div>
+            
+            <div class="setting-row">
+                <span class="setting-label">Default Game</span>
+                <select class="setting-select" id="setting-default-game">
+                    <option value="shanghai">Shang-Hi</option>
+                    <option value="mexicantrain">Mexican Train</option>
+                    <option value="oldhell">Old Hell</option>
+                    <option value="spades">Spades</option>
+                    <option value="hearts">Hearts</option>
+                    <option value="rummikub">Rummikub</option>
+                    <option value="triominos">Triominos</option>
+                    <option value="qwirkle">Qwirkle</option>
+                </select>
+            </div>
+            
+            <div class="setting-row">
+                <div class="setting-checkbox" onclick="document.getElementById('setting-remember-last').click()">
+                    <input type="checkbox" id="setting-remember-last" onclick="event.stopPropagation();">
+                    <label for="setting-remember-last">Remember Last Game Settings</label>
+                </div>
+            </div>
+        </div>
+    </details>
+    
+    <!-- Multiplayer -->
+    <details class="setting-section">
+        <summary class="setting-header">
+            <span>🌐 Multiplayer</span>
+            <span style="font-size:0.8em; color:#888;">▼</span>
+        </summary>
+        <div class="setting-content">
+            <div class="setting-row">
+                <div class="setting-checkbox" onclick="document.getElementById('setting-remember-code').click()">
+                    <input type="checkbox" id="setting-remember-code" onclick="event.stopPropagation();">
+                    <label for="setting-remember-code">Remember Last Game Code</label>
+                </div>
+            </div>
+            
+            <div class="setting-row">
+                <span class="setting-label">Default Host Name</span>
+                <input type="text" class="setting-input" id="setting-default-host-name" placeholder="Your name when hosting">
+            </div>
+        </div>
+    </details>
+    
+    <!-- Sound & Notifications -->
+    <details class="setting-section">
+        <summary class="setting-header">
+            <span>🔊 Sound & Notifications</span>
+            <span style="font-size:0.8em; color:#888;">▼</span>
+        </summary>
+        <div class="setting-content">
+            <div class="setting-row">
+                <div class="setting-checkbox" onclick="document.getElementById('setting-sound-effects').click()">
+                    <input type="checkbox" id="setting-sound-effects" onclick="event.stopPropagation();">
+                    <label for="setting-sound-effects">Sound Effects</label>
+                </div>
+            </div>
+            
+            <div class="setting-row">
+                <div class="setting-checkbox" onclick="document.getElementById('setting-vibration').click()">
+                    <input type="checkbox" id="setting-vibration" onclick="event.stopPropagation();">
+                    <label for="setting-vibration">Vibration (Mobile)</label>
+                </div>
+            </div>
+            
+            <div class="setting-row">
+                <div class="setting-checkbox" onclick="document.getElementById('setting-notify-turn').click()">
+                    <input type="checkbox" id="setting-notify-turn" onclick="event.stopPropagation();">
+                    <label for="setting-notify-turn">Notify When It's Your Turn (Viewers)</label>
+                </div>
+            </div>
+        </div>
+    </details>
+    
+    <!-- Data Management -->
+    <details class="setting-section">
+        <summary class="setting-header">
+            <span>💾 Data Management</span>
+            <span style="font-size:0.8em; color:#888;">▼</span>
+        </summary>
+        <div class="setting-content">
+            <div class="setting-row">
+                <button class="btn-game-action" style="background:#27ae60; width:100%;" onclick="exportData()">⬇️ Backup Game History</button>
+            </div>
+            <div class="setting-row">
+                <button class="btn-outline" style="background:white; border-color:#2980b9; color:#2980b9; width:100%;" onclick="triggerImport()">⬆️ Restore Game History</button>
+                <input type="file" id="import-file" style="display:none" onchange="importData(this)">
+            </div>
+            
+            <div class="setting-divider"></div>
+            
+            <div class="setting-row">
+                <button class="btn-game-action" style="background:#3498db; width:100%;" onclick="exportSettings()">⬇️ Export Settings</button>
+            </div>
+            <div class="setting-row">
+                <button class="btn-outline" style="background:white; border-color:#3498db; color:#3498db; width:100%;" onclick="triggerSettingsImport()">⬆️ Import Settings</button>
+                <input type="file" id="settings-import-file" style="display:none" accept=".json" onchange="importSettings(this)">
+            </div>
+        </div>
+    </details>
+    
+    <!-- Advanced -->
+    <details class="setting-section">
+        <summary class="setting-header">
+            <span>🔧 Advanced</span>
+            <span style="font-size:0.8em; color:#888;">▼</span>
+        </summary>
+        <div class="setting-content">
+            <div class="setting-row">
+                <div class="setting-checkbox" onclick="document.getElementById('setting-debug-mode').click()">
+                    <input type="checkbox" id="setting-debug-mode" onclick="event.stopPropagation();">
+                    <label for="setting-debug-mode">Debug Mode (Console Logging)</label>
+                </div>
+            </div>
+            
+            <div class="setting-divider"></div>
+            
+            <div class="setting-row">
+                <button class="btn-outline" style="background:#f8d7da; border-color:#c0392b; color:#c0392b; width:100%;" onclick="resetSettingsToDefault()">🔄 Reset All Settings to Default</button>
+            </div>
+        </div>
+    </details>
+    
+    <!-- Action Buttons -->
+    <button class="btn-game-action" onclick="saveSettingsFromForm()">💾 Save Settings</button>
+    <button class="btn-outline" onclick="closeSettings()">Cancel</button>
+</div>
+
+
+
 <!-- Load scripts in order -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="js/config.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/state.js"></script>
@@ -216,6 +603,7 @@
 <script src="js/ui/table.js"></script>
 <script src="js/ui/game.js"></script>
 <script src="js/ui/leaderboard.js"></script>
+<script src="js/ui/settings.js"></script>
 
 <!-- Firebase Module (ES6 Module) -->
 <script type="module" src="js/firebase.js"></script>
@@ -224,6 +612,7 @@
 <script>
     window.onload = function() {
         initApp();
+        initializeSettings();
         if('wakeLock' in navigator) {
             navigator.wakeLock.request('screen').catch(()=>{});
         }

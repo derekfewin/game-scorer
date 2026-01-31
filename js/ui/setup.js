@@ -55,33 +55,100 @@ function updateSetupUI() {
     
     const teamDiv = document.getElementById('team-option');
     const teamBtn = document.getElementById('use-teams');
-
-    if (conf.hasTeams) {
-        teamDiv.style.display = 'block';
-        if (count % 2 !== 0) {
-            teamBtn.disabled = true;
-            teamBtn.classList.remove('active');
-            teamBtn.innerText = "⚠️ Teams Unavailable (Need Even #)";
-            teamBtn.style.opacity = '0.5';
-        } else {
-            teamBtn.disabled = false;
-            teamBtn.style.opacity = '1';
-            updateTeamButtonText();
-        }
-    } else {
-        teamDiv.style.display = 'none';
-        teamBtn.classList.remove('active');
-    }
-
-    document.getElementById('random-option').style.display = 
-        conf.hasRandomize ? 'block' : 'none';
-    
+    const randomDiv = document.getElementById('random-option');
     const targetDiv = document.getElementById('target-option');
-    if (conf.type === 'target_score' || key === 'hearts') {
-        targetDiv.style.display = 'block';
+    
+    // New combined rows
+    const shanghaiRow = document.getElementById('shanghai-options-row');
+    const teamTargetRow = document.getElementById('team-target-row');
+    
+    // Hide all options first
+    teamDiv.style.display = 'none';
+    randomDiv.style.display = 'none';
+    targetDiv.style.display = 'none';
+    shanghaiRow.style.display = 'none';
+    teamTargetRow.style.display = 'none';
+    
+    // Shanghai: Show teams + randomize on same row
+    if (key === 'shanghai') {
+        shanghaiRow.style.display = 'flex';
+        const teamBtnShanghai = document.getElementById('use-teams-shanghai');
+        
+        if (count % 2 !== 0) {
+            teamBtnShanghai.disabled = true;
+            teamBtnShanghai.classList.remove('active');
+            teamBtnShanghai.innerText = "⚠️ Need Even #";
+            teamBtnShanghai.style.opacity = '0.5';
+        } else {
+            teamBtnShanghai.disabled = false;
+            teamBtnShanghai.style.opacity = '1';
+            if (teamBtn.classList.contains('active')) {
+                teamBtnShanghai.classList.add('active');
+                teamBtnShanghai.innerText = "✓ Teams Enabled";
+            } else {
+                teamBtnShanghai.classList.remove('active');
+                teamBtnShanghai.innerText = "Play in Teams?";
+            }
+        }
+        
+        const randomBtnShanghai = document.getElementById('randomize-goals-shanghai');
+        const randomBtn = document.getElementById('randomize-goals');
+        if (randomBtn.classList.contains('active')) {
+            randomBtnShanghai.classList.add('active');
+        } else {
+            randomBtnShanghai.classList.remove('active');
+        }
+    }
+    // Spades or Hearts: Show teams + target score on same row
+    else if (key === 'spades' || key === 'hearts') {
+        teamTargetRow.style.display = 'flex';
+        const teamBtnRow = document.getElementById('use-teams-row');
+        const targetInput = document.getElementById('target-score-row');
+        
+        targetInput.value = conf.target;
         document.getElementById('target-score').value = conf.target;
-    } else {
-        targetDiv.style.display = 'none';
+        
+        if (count % 2 !== 0) {
+            teamBtnRow.disabled = true;
+            teamBtnRow.classList.remove('active');
+            teamBtnRow.innerText = "⚠️ Need Even #";
+            teamBtnRow.style.opacity = '0.5';
+        } else {
+            teamBtnRow.disabled = false;
+            teamBtnRow.style.opacity = '1';
+            if (teamBtn.classList.contains('active')) {
+                teamBtnRow.classList.add('active');
+                teamBtnRow.innerText = "✓ Teams Enabled";
+            } else {
+                teamBtnRow.classList.remove('active');
+                teamBtnRow.innerText = "Play in Teams?";
+            }
+        }
+    }
+    // Other games: Use individual options
+    else {
+        if (conf.hasTeams) {
+            teamDiv.style.display = 'block';
+            if (count % 2 !== 0) {
+                teamBtn.disabled = true;
+                teamBtn.classList.remove('active');
+                teamBtn.innerText = "⚠️ Teams Unavailable (Need Even #)";
+                teamBtn.style.opacity = '0.5';
+            } else {
+                teamBtn.disabled = false;
+                teamBtn.style.opacity = '1';
+                updateTeamButtonText();
+            }
+        }
+        
+        if (conf.hasRandomize) {
+            randomDiv.style.display = 'block';
+        }
+        
+        if (conf.type === 'target_score') {
+            targetDiv.style.display = 'block';
+            document.getElementById('target-score').value = conf.target;
+        }
     }
 }
 
@@ -115,29 +182,61 @@ function updatePlayerCountButtons() {
 
 function toggleTeams() {
     const btn = document.getElementById('use-teams');
-    if(btn.disabled) return;
+    const btnShanghai = document.getElementById('use-teams-shanghai');
+    const btnRow = document.getElementById('use-teams-row');
     
-    btn.classList.toggle('active');
+    // Check which button was actually clicked
+    const activeBtn = event && event.target ? event.target : btn;
+    
+    if (activeBtn.disabled) return;
+    
+    // Toggle the active state
+    const willBeActive = !btn.classList.contains('active');
+    
+    // Sync all buttons
+    if (willBeActive) {
+        btn.classList.add('active');
+        btnShanghai.classList.add('active');
+        btnRow.classList.add('active');
+    } else {
+        btn.classList.remove('active');
+        btnShanghai.classList.remove('active');
+        btnRow.classList.remove('active');
+    }
+    
     updateTeamButtonText();
 }
 
 function updateTeamButtonText() {
     const btn = document.getElementById('use-teams');
+    const btnShanghai = document.getElementById('use-teams-shanghai');
+    const btnRow = document.getElementById('use-teams-row');
+    
     if(btn.classList.contains('active')) {
         btn.innerText = "✓ Playing in Teams";
+        if (btnShanghai) btnShanghai.innerText = "✓ Teams Enabled";
+        if (btnRow) btnRow.innerText = "✓ Teams Enabled";
     } else {
         btn.innerText = "Play in Teams?";
+        if (btnShanghai) btnShanghai.innerText = "Play in Teams?";
+        if (btnRow) btnRow.innerText = "Play in Teams?";
     }
 }
 
 function toggleRandomize() {
     const btn = document.getElementById('randomize-goals');
+    const btnShanghai = document.getElementById('randomize-goals-shanghai');
+    
+    // Toggle both buttons
     btn.classList.toggle('active');
+    btnShanghai.classList.toggle('active');
     
     if(btn.classList.contains('active')) {
         btn.innerText = "✓ Goals Randomized";
+        btnShanghai.innerText = "✓ Randomized";
     } else {
         btn.innerText = "🔀 Randomize Goals?";
+        btnShanghai.innerText = "🔀 Randomize Goals?";
     }
 }
 
