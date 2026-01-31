@@ -237,7 +237,8 @@ function showLeaderboard() {
 function renderLeaderboardChart(gameKey, entries, container) {
     let canvasId = `chart-${gameKey}`;
     let chartContainer = document.createElement('div');
-    chartContainer.style.cssText = 'position:relative; height:250px; width:100%; margin-bottom:40px;';
+    chartContainer.id = `chart-container-${gameKey}`;
+    chartContainer.style.cssText = 'position:relative; height:250px; width:100%; margin-bottom:40px; display:none;'; // Hidden by default
     chartContainer.innerHTML = `<canvas id="${canvasId}"></canvas>`;
     container.appendChild(chartContainer);
 
@@ -246,9 +247,14 @@ function renderLeaderboardChart(gameKey, entries, container) {
     const winRates = entries.map(e => (e.plays > 0 ? parseFloat(((e.wins / e.plays) * 100).toFixed(1)) : 0));
 
     const ctx = document.getElementById(canvasId);
-    if (!ctx) return;
+    if (!ctx) {
+        console.error('Canvas element not found:', canvasId);
+        chartContainer.remove(); // Remove empty container
+        return;
+    }
     
-    chartInstances[gameKey] = new Chart(ctx, {
+    try {
+        chartInstances[gameKey] = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: names,
@@ -347,6 +353,16 @@ function renderLeaderboardChart(gameKey, entries, container) {
             }
         }
     });
+    
+    // If chart created successfully, show the container
+    if (chartInstances[gameKey]) {
+        chartContainer.style.display = 'block';
+    }
+    
+    } catch (error) {
+        console.error('Failed to create chart for', gameKey, ':', error);
+        chartContainer.remove(); // Remove empty container on error
+    }
 }
 
 function closeLeaderboard() {
@@ -358,6 +374,13 @@ function closeLeaderboard() {
     chartInstances = {};
     
     resetTheme();
+    
+    // Re-apply user settings after resetting theme
+    if (typeof loadSettings === 'function' && typeof applySettings === 'function') {
+        const settings = loadSettings();
+        applySettings(settings);
+    }
+    
     document.getElementById('leaderboard-screen').style.display = 'none';
     document.getElementById('setup-screen').style.display = 'block';
     checkRestore();

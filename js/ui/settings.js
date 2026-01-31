@@ -157,6 +157,10 @@ function showSettings() {
 
 // Close settings screen
 function closeSettings() {
+    // Re-apply settings when closing (in case user changed without saving)
+    const settings = loadSettings();
+    applySettings(settings);
+    
     document.getElementById('settings-screen').style.display = 'none';
     document.getElementById('setup-screen').style.display = 'block';
 }
@@ -334,9 +338,32 @@ function playSound(type) {
 
 // Vibrate device
 function vibrateDevice(pattern = [50]) {
-    const settings = loadSettings();
-    if (!settings.vibration) return;
-    if ('vibrate' in navigator) {
-        navigator.vibrate(pattern);
+    try {
+        const settings = loadSettings();
+        
+        // Debug logging
+        if (settings.debugMode) {
+            console.log('🔔 Vibrate requested:', pattern);
+            console.log('Vibration enabled in settings:', settings.vibration);
+            console.log('Navigator.vibrate available:', 'vibrate' in navigator);
+        }
+        
+        if (!settings.vibration) {
+            if (settings.debugMode) console.log('Vibration disabled in settings');
+            return;
+        }
+        
+        if (!('vibrate' in navigator)) {
+            if (settings.debugMode) console.log('Vibration API not supported');
+            return;
+        }
+        
+        // Try to vibrate
+        const result = navigator.vibrate(pattern);
+        if (settings.debugMode) {
+            console.log('Vibrate result:', result);
+        }
+    } catch (error) {
+        console.error('Vibration error:', error);
     }
 }

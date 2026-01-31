@@ -620,6 +620,7 @@
                     <input type="checkbox" id="setting-sound-effects" onclick="event.stopPropagation();">
                     <label for="setting-sound-effects">Sound Effects</label>
                 </div>
+                <button class="btn-outline" style="width:100%; margin-top:8px; padding:8px; font-size:0.9em;" onclick="if(typeof playSound === 'function') playSound('submit');">🔊 Test Sound</button>
             </div>
             
             <div class="setting-row">
@@ -627,6 +628,7 @@
                     <input type="checkbox" id="setting-vibration" onclick="event.stopPropagation();">
                     <label for="setting-vibration">Vibration (Mobile)</label>
                 </div>
+                <button class="btn-outline" style="width:100%; margin-top:8px; padding:8px; font-size:0.9em;" onclick="if(typeof vibrateDevice === 'function') vibrateDevice([100, 50, 100]);">📳 Test Vibration</button>
             </div>
             
             <div class="setting-row">
