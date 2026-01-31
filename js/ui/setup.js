@@ -161,6 +161,9 @@ function setPlayerCount(num) {
         return;
     }
     
+    // Haptic feedback
+    if (typeof vibrateDevice === 'function') vibrateDevice([20]);
+    
     document.getElementById('player-count').value = num;
     updatePlayerCountButtons();
     updateSetupUI();
@@ -189,6 +192,9 @@ function toggleTeams() {
     const activeBtn = event && event.target ? event.target : btn;
     
     if (activeBtn.disabled) return;
+    
+    // Haptic feedback
+    if (typeof vibrateDevice === 'function') vibrateDevice([25]);
     
     // Toggle the active state
     const willBeActive = !btn.classList.contains('active');
@@ -226,6 +232,9 @@ function updateTeamButtonText() {
 function toggleRandomize() {
     const btn = document.getElementById('randomize-goals');
     const btnShanghai = document.getElementById('randomize-goals-shanghai');
+    
+    // Haptic feedback
+    if (typeof vibrateDevice === 'function') vibrateDevice([25]);
     
     // Toggle both buttons
     btn.classList.toggle('active');

@@ -22,18 +22,134 @@
             font-size: 12px; 
             white-space: pre-wrap; 
         }
+        
+        /* Dark Mode */
+        body.dark-mode {
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode .card {
+            background: #2d2d2d;
+            color: #e0e0e0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+        }
+        
+        body.dark-mode input, 
+        body.dark-mode select, 
+        body.dark-mode textarea {
+            background: #3a3a3a;
+            color: #e0e0e0;
+            border-color: #555;
+        }
+        
+        body.dark-mode .btn-game-action {
+            background: #27ae60;
+            color: white;
+        }
+        
+        body.dark-mode .btn-outline {
+            background: #3a3a3a;
+            color: #e0e0e0;
+            border-color: #555;
+        }
+        
+        body.dark-mode table {
+            background: #2d2d2d;
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode th {
+            background: #3a3a3a;
+        }
+        
+        body.dark-mode tr:nth-child(even) {
+            background: #333;
+        }
+        
+        body.dark-mode .setting-section {
+            border-color: #444;
+        }
+        
+        body.dark-mode .setting-header {
+            background: #3a3a3a;
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode .setting-header:hover {
+            background: #444;
+        }
+        
+        body.dark-mode .setting-content {
+            background: #2d2d2d;
+        }
+        
+        body.dark-mode .setting-checkbox {
+            background: #3a3a3a;
+        }
+        
+        body.dark-mode .setting-checkbox:hover {
+            background: #444;
+        }
+        
+        /* Font Sizes */
+        body.font-small {
+            font-size: 14px;
+        }
+        
+        body.font-medium {
+            font-size: 16px;
+        }
+        
+        body.font-large {
+            font-size: 18px;
+        }
+        
+        /* Compact Mode */
+        body.compact-mode .card {
+            padding: 15px;
+        }
+        
+        body.compact-mode .setup-group {
+            margin-bottom: 12px;
+        }
+        
+        body.compact-mode h2 {
+            margin-bottom: 15px;
+        }
     </style>
     
     <!-- Error Handler -->
     <script>
         window.onerror = function(msg, url, line, col, error) {
-            var d = document.getElementById('debug-log');
-            if(d){
-                d.style.display = 'block';
-                d.innerHTML += "Error: " + msg + "\nLine: " + line + "\n\n";
+            // Ignore cross-origin script errors from CDNs (these are normal)
+            if (msg === "Script error." && line === 0) {
+                return true; // Suppress this error
+            }
+            
+            // Wait for DOM to be ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    displayError(msg, url, line, col, error);
+                });
+            } else {
+                displayError(msg, url, line, col, error);
             }
             return false;
         };
+        
+        function displayError(msg, url, line, col, error) {
+            var d = document.getElementById('debug-log');
+            if(d){
+                d.style.display = 'block';
+                var errorMsg = "Error: " + msg;
+                if (url) errorMsg += "\nFile: " + url;
+                if (line > 0) errorMsg += "\nLine: " + line;
+                if (col > 0) errorMsg += "\nColumn: " + col;
+                if (error && error.stack) errorMsg += "\n\nStack:\n" + error.stack;
+                d.innerHTML += errorMsg + "\n\n---\n\n";
+            }
+        }
     </script>
 </head>
 <body>

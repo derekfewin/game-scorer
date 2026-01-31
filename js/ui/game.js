@@ -15,6 +15,11 @@ function renderGame() {
     let roundLabel = `${conf.name}: Round ${game.round}`;
     let vCount = state.viewerCount || 0;
     
+    // Check if it's this viewer's turn and notify them
+    if (state.isViewer && state.viewingAsPlayerIdx !== null && !isGameOver) {
+        notifyIfMyTurn(game, conf);
+    }
+    
     // HEADER LOGIC
     let headerPrefix = "";
     
@@ -474,7 +479,14 @@ function submitRound() {
     if (!result.valid) {
         err.innerText = result.msg;
         err.style.display = 'block';
+        // Play error sound and vibrate
+        if (typeof playSound === 'function') playSound('error');
+        if (typeof vibrateDevice === 'function') vibrateDevice([100, 50, 100]);
     } else {
+        // Play success sound and vibrate
+        if (typeof playSound === 'function') playSound('submit');
+        if (typeof vibrateDevice === 'function') vibrateDevice([50]);
+        
         saveState();
         renderGame();
     }
@@ -486,6 +498,10 @@ function undoRound() {
             state.currentGame.undo();
             saveState();
             renderGame();
+            
+            // Play click sound and vibrate
+            if (typeof playSound === 'function') playSound('click');
+            if (typeof vibrateDevice === 'function') vibrateDevice([30]);
         });
     }
 }
@@ -574,4 +590,115 @@ function filterNumericInput(input) {
     if (value !== cleaned) {
         input.value = cleaned;
     }
+}
+
+// Track last round we notified for (to avoid repeated notifications)
+let lastNotifiedRound = -1;
+
+function notifyIfMyTurn(game, conf) {
+    // Check settings
+    const settings = typeof loadSettings === 'function' ? loadSettings() : { notifyOnTurn: false };
+    if (!settings.notifyOnTurn) return;
+    
+    // Get current dealer/active player
+    let activePlayerIdx = -1;
+    
+    if (conf.hasDealer) {
+        activePlayerIdx = game.getDealerIdx();
+    } else {
+        // For games without dealers, all players are active
+        // We can still notify on round changes
+        activePlayerIdx = -1; // Everyone's turn
+    }
+    
+    // Check if this is a new round
+    const currentRound = game.round;
+    const isNewRound = currentRound !== lastNotifiedRound;
+    
+    if (!isNewRound) return; // Already notified for this round
+    
+    // Determine if we should notify
+    let shouldNotify = false;
+    
+    if (activePlayerIdx === -1) {
+        // No specific dealer - notify all players on new rounds
+        shouldNotify = true;
+    } else if (activePlayerIdx === state.viewingAsPlayerIdx) {
+        // It's specifically this player's turn to deal/start
+        shouldNotify = true;
+    }
+    
+    if (shouldNotify) {
+        lastNotifiedRound = currentRound;
+        
+        // Visual notification
+        const playerName = game.players[state.viewingAsPlayerIdx].name;
+        showTurnNotification(playerName, conf.hasDealer && activePlayerIdx === state.viewingAsPlayerIdx);
+        
+        // Sound notification
+        if (typeof playSound === 'function') {
+            playSound('submit');
+        }
+        
+        // Vibration notification (triple pulse)
+        if (typeof vibrateDevice === 'function') {
+            vibrateDevice([100, 100, 100, 100, 100]);
+        }
+    }
+}
+
+function showTurnNotification(playerName, isDealer) {
+    // Create notification banner
+    const existingBanner = document.getElementById('turn-notification-banner');
+    if (existingBanner) existingBanner.remove();
+    
+    const banner = document.createElement('div');
+    banner.id = 'turn-notification-banner';
+    banner.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px 30px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        z-index: 10000;
+        font-weight: bold;
+        font-size: 1.1em;
+        animation: slideDown 0.5s ease-out;
+        text-align: center;
+    `;
+    
+    const message = isDealer 
+        ? `🎴 ${playerName}, you're dealing!`
+        : `🎮 ${playerName}, it's your turn!`;
+    
+    banner.innerHTML = message;
+    
+    // Add animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideDown {
+            from {
+                top: -100px;
+                opacity: 0;
+            }
+            to {
+                top: 20px;
+                opacity: 1;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    document.body.appendChild(banner);
+    
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+        banner.style.animation = 'slideUp 0.5s ease-in';
+        banner.style.top = '-100px';
+        setTimeout(() => banner.remove(), 500);
+    }, 4000);
 }

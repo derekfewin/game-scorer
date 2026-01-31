@@ -72,7 +72,7 @@ function applySettings(settings) {
     }
     
     // Apply accent color (but don't override game-specific colors during gameplay)
-    if (!state.currentGame) {
+    if (!state || !state.currentGame) {
         document.documentElement.style.setProperty('--accent', settings.accentColor);
         document.documentElement.style.setProperty('--primary', settings.accentColor);
     }
@@ -88,13 +88,13 @@ function applySettings(settings) {
         document.body.classList.remove('compact-mode');
     }
     
-    // Set default player count if rememberLastSettings is off
-    // Only do this if the elements exist (app is fully loaded)
-    if (!settings.rememberLastSettings) {
-        const playerCountEl = document.getElementById('player-count');
-        const gameSelectEl = document.getElementById('game-select');
-        
-        if (playerCountEl && gameSelectEl) {
+    // Set default player count and game
+    const playerCountEl = document.getElementById('player-count');
+    const gameSelectEl = document.getElementById('game-select');
+    
+    if (playerCountEl && gameSelectEl) {
+        // Always apply defaults unless user explicitly wants to remember last game
+        if (!settings.rememberLastSettings) {
             playerCountEl.value = settings.defaultPlayerCount;
             gameSelectEl.value = settings.defaultGame;
             
@@ -114,6 +114,7 @@ function applySettings(settings) {
         console.log('Current Settings:', settings);
     }
 }
+
 
 // Show settings screen
 function showSettings() {

@@ -1,6 +1,6 @@
 /**
  * Leaderboard (Hall of Fame)
- * Displays win statistics and personal bests with Chart.js visualizations
+ * Displays game history and win statistics with charts
  */
 
 function finalizeGame() {
@@ -16,7 +16,25 @@ function finalizeGame() {
         .map(p => p.name);
     
     let lb = JSON.parse(localStorage.getItem('cardScorerLB') || '{}');
-    if (!lb[state.gameKey]) lb[state.gameKey] = {};
+    if (!lb[state.gameKey]) lb[state.gameKey] = { stats: {}, history: [] };
+    
+    // Ensure stats and history objects exist
+    if (!lb[state.gameKey].stats) lb[state.gameKey].stats = {};
+    if (!lb[state.gameKey].history) lb[state.gameKey].history = [];
+    
+    // Store game history
+    const gameRecord = {
+        date: new Date().toISOString(),
+        players: state.currentGame.players.map(p => ({ name: p.name, score: p.total })),
+        winners: winners,
+        isTeams: state.currentGame.settings.useTeams || false
+    };
+    lb[state.gameKey].history.unshift(gameRecord); // Add to beginning
+    
+    // Keep only last 20 games per game type
+    if (lb[state.gameKey].history.length > 20) {
+        lb[state.gameKey].history = lb[state.gameKey].history.slice(0, 20);
+    }
     
     if (state.currentGame.settings.useTeams) {
         // TEAM STATS
@@ -38,11 +56,11 @@ function finalizeGame() {
         let winningTeams = teams.filter(t => t.score === bestTeamScore).map(t => t.name);
         
         teams.forEach(t => {
-            if (!lb[state.gameKey][t.name]) {
-                lb[state.gameKey][t.name] = { wins: 0, plays: 0, best: null };
+            if (!lb[state.gameKey].stats[t.name]) {
+                lb[state.gameKey].stats[t.name] = { wins: 0, plays: 0, best: null };
             }
             
-            let stats = lb[state.gameKey][t.name];
+            let stats = lb[state.gameKey].stats[t.name];
             stats.plays++;
             
             if (winningTeams.includes(t.name)) {
@@ -65,20 +83,11 @@ function finalizeGame() {
         state.currentGame.players.forEach(p => {
             let pName = p.name;
             
-            // Migration: Convert old number format to object
-            if (typeof lb[state.gameKey][pName] === 'number') {
-                lb[state.gameKey][pName] = { 
-                    wins: lb[state.gameKey][pName], 
-                    plays: lb[state.gameKey][pName], 
-                    best: null 
-                };
+            if (!lb[state.gameKey].stats[pName]) {
+                lb[state.gameKey].stats[pName] = { wins: 0, plays: 0, best: null };
             }
             
-            if (!lb[state.gameKey][pName]) {
-                lb[state.gameKey][pName] = { wins: 0, plays: 0, best: null };
-            }
-            
-            let stats = lb[state.gameKey][pName];
+            let stats = lb[state.gameKey].stats[pName];
             stats.plays++;
             
             if (winners.includes(pName)) {
@@ -106,7 +115,7 @@ function finalizeGame() {
     showLeaderboard();
 }
 
-// Keep track of active chart instances to destroy them before re-rendering
+// Keep track of active chart instances
 let chartInstances = {}; 
 
 function showLeaderboard() {
@@ -118,7 +127,7 @@ function showLeaderboard() {
     const div = document.getElementById('lb-content');
     div.innerHTML = '';
     
-    // Clean up old charts if they exist
+    // Clean up old charts
     Object.values(chartInstances).forEach(chart => {
         if (chart && typeof chart.destroy === 'function') {
             chart.destroy();
@@ -126,18 +135,26 @@ function showLeaderboard() {
     });
     chartInstances = {}; 
 
-    // Check if Chart.js is available
     const chartJsAvailable = typeof Chart !== 'undefined';
     
     for(let k in GAMES) {
-        // 1. Create Title & Container
+        // Game Title
         let title = document.createElement('div');
         title.className = 'lb-title';
         title.innerHTML = `<span>${GAMES[k].name}</span> 
             <button class="btn-lb-reset" onclick="resetLB('${k}')">Clear</button>`;
         div.appendChild(title);
         
-        let rawData = lb[k] || {};
+        // Migrate old format to new format
+        let gameData = lb[k] || {};
+        if (!gameData.stats && !gameData.history) {
+            // Old format - migrate
+            gameData = { stats: gameData, history: [] };
+        }
+        
+        let rawData = gameData.stats || {};
+        let history = gameData.history || [];
+        
         let entries = Object.entries(rawData).map(([name, val]) => {
             if (typeof val === 'number') {
                 return { name, wins: val, plays: val, best: '-' };
@@ -145,37 +162,72 @@ function showLeaderboard() {
             return { name, ...val };
         });
         
-        // Sort by wins for the table (and the chart order)
         entries.sort((a,b) => b.wins - a.wins);
         
-        if(!entries.length) {
-            div.innerHTML += `<div style="color:#999;font-style:italic;margin-bottom:20px">No stats yet</div>`;
-        } else {
-            // 2. Render Table
-            let table = `<table class="lb-table" style="margin-bottom: 15px;">
+        if(!entries.length && !history.length) {
+            div.innerHTML += `<div style="color:#999;font-style:italic;margin-bottom:30px">No stats yet</div>`;
+            continue;
+        }
+        
+        // === SECTION 1: RECENT GAMES HISTORY ===
+        if (history.length > 0) {
+            let historyTitle = document.createElement('h3');
+            historyTitle.style.cssText = 'font-size:1em; margin:15px 0 10px 0; color:#555;';
+            historyTitle.textContent = '📅 Recent Games';
+            div.appendChild(historyTitle);
+            
+            let historyTable = `<table class="lb-table" style="margin-bottom: 25px;">
+                <thead><tr><th>Date</th><th>Winner(s)</th><th>Scores</th></tr></thead>
+                <tbody>`;
+                
+            history.slice(0, 10).forEach(game => {
+                let date = new Date(game.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                let winnersText = game.winners.join(', ');
+                
+                let scoresText = game.players.map(p => 
+                    `${p.name}: ${p.score}`
+                ).join(', ');
+                
+                historyTable += `<tr>
+                    <td style="white-space:nowrap;">${date}</td>
+                    <td><strong>${winnersText}</strong></td>
+                    <td style="font-size:0.9em;">${scoresText}</td>
+                </tr>`;
+            });
+            historyTable += `</tbody></table>`;
+            div.innerHTML += historyTable;
+        }
+        
+        // === SECTION 2: OVERALL STATS TABLE ===
+        if (entries.length > 0) {
+            let statsTitle = document.createElement('h3');
+            statsTitle.style.cssText = 'font-size:1em; margin:15px 0 10px 0; color:#555;';
+            statsTitle.textContent = '🏆 Overall Statistics';
+            div.appendChild(statsTitle);
+            
+            let statsTable = `<table class="lb-table" style="margin-bottom: 20px;">
                 <thead><tr><th>Name</th><th>Wins</th><th>%</th><th>Best</th></tr></thead>
                 <tbody>`;
                 
             entries.forEach(e => {
                 let pct = (e.plays > 0) ? Math.round((e.wins / e.plays) * 100) : 0;
                 let best = (e.best !== null && e.best !== '-') ? e.best : '-';
-                table += `<tr>
+                statsTable += `<tr>
                     <td>${e.name}</td>
                     <td><span class="lb-win-badge">${e.wins}</span></td>
                     <td>${pct}%</td>
                     <td>${best}</td>
                 </tr>`;
             });
-            table += `</tbody></table>`;
-            div.innerHTML += table;
+            statsTable += `</tbody></table>`;
+            div.innerHTML += statsTable;
 
-            // 3. Render Chart (only if Chart.js is loaded and we have data)
+            // === SECTION 3: CHART ===
             if (chartJsAvailable && entries.length > 0) {
                 try {
                     renderLeaderboardChart(k, entries, div);
                 } catch (error) {
                     console.error('Error rendering chart for ' + k + ':', error);
-                    // Chart failed but table still works
                 }
             }
         }
@@ -183,27 +235,18 @@ function showLeaderboard() {
 }
 
 function renderLeaderboardChart(gameKey, entries, container) {
-    // Create a canvas with a unique ID for this game
     let canvasId = `chart-${gameKey}`;
     let chartContainer = document.createElement('div');
-    chartContainer.style.position = 'relative';
-    chartContainer.style.height = '250px';
-    chartContainer.style.width = '100%';
-    chartContainer.style.marginBottom = '40px';
+    chartContainer.style.cssText = 'position:relative; height:250px; width:100%; margin-bottom:40px;';
     chartContainer.innerHTML = `<canvas id="${canvasId}"></canvas>`;
     container.appendChild(chartContainer);
 
-    // Calculate data arrays for Chart.js
     const names = entries.map(e => e.name);
     const wins = entries.map(e => e.wins);
     const winRates = entries.map(e => (e.plays > 0 ? parseFloat(((e.wins / e.plays) * 100).toFixed(1)) : 0));
 
-    // Create the Chart
     const ctx = document.getElementById(canvasId);
-    if (!ctx) {
-        console.error('Canvas element not found:', canvasId);
-        return;
-    }
+    if (!ctx) return;
     
     chartInstances[gameKey] = new Chart(ctx, {
         type: 'bar',
@@ -253,9 +296,7 @@ function renderLeaderboardChart(gameKey, entries, container) {
                     callbacks: {
                         label: function(context) {
                             let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
+                            if (label) label += ': ';
                             if (context.parsed.y !== null) {
                                 if (context.dataset.yAxisID === 'y1') {
                                     label += context.parsed.y + '%';
@@ -309,7 +350,6 @@ function renderLeaderboardChart(gameKey, entries, container) {
 }
 
 function closeLeaderboard() {
-    // Clean up charts when closing
     Object.values(chartInstances).forEach(chart => {
         if (chart && typeof chart.destroy === 'function') {
             chart.destroy();
@@ -326,7 +366,7 @@ function closeLeaderboard() {
 function resetLB(key) {
     showConfirm("Reset history for this game?", () => {
         let lb = JSON.parse(localStorage.getItem('cardScorerLB') || '{}');
-        lb[key] = {};
+        lb[key] = { stats: {}, history: [] };
         localStorage.setItem('cardScorerLB', JSON.stringify(lb));
         showLeaderboard();
     });
